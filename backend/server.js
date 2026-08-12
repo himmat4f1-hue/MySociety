@@ -24,6 +24,7 @@ app.use(morgan('dev'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'MySociety API running' }));
 
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/dev', require('./routes/devRoutes'));
 app.use('/api/plans', require('./routes/planRoutes'));
 app.use('/api/pets', require('./routes/petRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));

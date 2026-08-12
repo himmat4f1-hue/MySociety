@@ -1,10 +1,13 @@
 // Run with: npm run seed
+// Also callable programmatically (see routes/devRoutes.js -> POST /api/dev/seed)
+// so it can be triggered from a button in the app without needing shell/SSH
+// access to the deployed backend (Render's free plan doesn't include Shell).
+//
 // Wipes existing data and inserts demo data matching the Greenfield Residency mockups.
 // Also sets up the Plans catalog and the "Greenfield Residency" demo Society so all
 // the existing demo login accounts continue to work exactly as before, just now
 // scoped inside a proper multi-tenant Society + Membership structure.
 require('dotenv').config();
-const { connectDB } = require('../config/db');
 
 const User = require('../models/User');
 const Society = require('../models/Society');
@@ -44,9 +47,11 @@ const MeetingAttendance = require('../models/MeetingAttendance');
 const CommitteeVote = require('../models/CommitteeVote');
 const ManagementVote = require('../models/ManagementVote');
 
-const seed = async () => {
-  await connectDB();
-
+// Core seeding logic. Assumes the database is already connected (does NOT
+// call connectDB() or process.exit() itself) so it's safe to call from a
+// running server (the /api/dev/seed route) as well as from the CLI wrapper
+// at the bottom of this file.
+const runSeed = async () => {
   console.log('Clearing existing data...');
   await Promise.all([
     User.destroy({ where: {}, truncate: true, cascade: true }),
@@ -419,10 +424,21 @@ const seed = async () => {
   console.log('Membership model supports the same email belonging to multiple societies -');
   console.log('try registering a second society from the Plans & Offers page with the same email.');
 
-  process.exit(0);
+  return { society: demoSociety.name };
 };
 
-seed().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+module.exports = runSeed;
+
+// CLI entry point: `npm run seed` - connects to the DB itself and exits when done.
+// (When called via the /api/dev/seed route instead, the server is already
+// connected, so this block is skipped and only runSeed() above is used.)
+if (require.main === module) {
+  const { connectDB } = require('../config/db');
+  connectDB()
+    .then(runSeed)
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}
