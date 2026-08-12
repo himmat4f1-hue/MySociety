@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const leaseSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     flatNo: { type: String, required: true },
     tower: { type: String, default: '' },
     tenantName: { type: String, required: true },

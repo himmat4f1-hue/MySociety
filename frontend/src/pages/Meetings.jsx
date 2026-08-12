@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Schedule and manage all society meetings',
   endpoint: '/meetings',
   searchPlaceholder: 'Search meetings by title...',
-  canWrite: (role) => ['admin', 'secretary', 'chairman'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Meetings', icon: CalendarDays, color: 'blue', compute: (d, t) => t },
     { label: 'Upcoming', icon: Clock, color: 'green', compute: (d) => d.filter((x) => new Date(x.date) >= new Date()).length },

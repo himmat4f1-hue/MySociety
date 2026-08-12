@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Issue and track temporary visitor, vendor and vehicle passes',
   endpoint: '/gate-passes',
   searchPlaceholder: 'Search by name, flat no., vehicle no...',
-  canWrite: (role) => ['admin', 'security', 'secretary'].includes(role),
+  canWrite: (role) => ['security', 'secretary'].includes(role),
   statCards: [
     { label: 'Total Passes', icon: KeyRound, color: 'blue', compute: (d, t) => t },
     { label: 'Active', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.status === 'Active').length },

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const shiftSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     staffName: { type: String, required: true },
     role: { type: String, enum: ['Security', 'Housekeeping'], required: true },
     shiftType: { type: String, enum: ['Morning', 'Evening', 'Night'], required: true },

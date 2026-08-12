@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const User = require('../models/User');
+const Membership = require('../models/Membership');
 const Unit = require('../models/Unit');
 const Visitor = require('../models/Visitor');
 const Complaint = require('../models/Complaint');
@@ -12,9 +12,12 @@ const Transaction = require('../models/Transaction');
 const Meeting = require('../models/Meeting');
 const Poll = require('../models/Poll');
 
-// @desc  Get overview stats for the main dashboard (role-aware)
+// @desc  Get overview stats for the main dashboard (role-aware), scoped to the
+// current society only (req.societyId comes from the JWT via auth middleware).
 // @route GET /api/dashboard/overview
 const getOverview = asyncHandler(async (req, res) => {
+  const sid = req.societyId;
+
   const [
     totalUnits,
     occupiedUnits,
@@ -33,36 +36,37 @@ const getOverview = asyncHandler(async (req, res) => {
     upcomingMeetings,
     activePolls,
   ] = await Promise.all([
-    Unit.countDocuments(),
-    Unit.countDocuments({ status: 'Occupied' }),
-    Unit.countDocuments({ status: 'Vacant' }),
-    Unit.countDocuments({ status: 'Maintenance' }),
-    User.countDocuments({ role: 'resident' }),
+    Unit.countDocuments({ society: sid }),
+    Unit.countDocuments({ society: sid, status: 'Occupied' }),
+    Unit.countDocuments({ society: sid, status: 'Vacant' }),
+    Unit.countDocuments({ society: sid, status: 'Maintenance' }),
+    Membership.countDocuments({ society: sid, role: { $in: ['resident', 'tenant'] } }),
     Visitor.countDocuments({
+      society: sid,
       createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
     }),
-    Visitor.countDocuments({ status: 'Inside' }),
-    Complaint.countDocuments({ status: { $in: ['Open', 'Overdue'] } }),
-    Maintenance.countDocuments({ status: { $in: ['Open', 'Overdue'] } }),
-    Notice.countDocuments(),
-    Notice.countDocuments({ status: 'Published' }),
-    Amenity.countDocuments(),
-    Amenity.countDocuments({ status: 'Available' }),
-    Document.countDocuments(),
-    Meeting.countDocuments({ date: { $gte: new Date() } }),
-    Poll.countDocuments({ status: 'Active' }),
+    Visitor.countDocuments({ society: sid, status: 'Inside' }),
+    Complaint.countDocuments({ society: sid, status: { $in: ['Open', 'Overdue'] } }),
+    Maintenance.countDocuments({ society: sid, status: { $in: ['Open', 'Overdue'] } }),
+    Notice.countDocuments({ society: sid }),
+    Notice.countDocuments({ society: sid, status: 'Published' }),
+    Amenity.countDocuments({ society: sid }),
+    Amenity.countDocuments({ society: sid, status: 'Available' }),
+    Document.countDocuments({ society: sid }),
+    Meeting.countDocuments({ society: sid, date: { $gte: new Date() } }),
+    Poll.countDocuments({ society: sid, status: 'Active' }),
   ]);
 
   const collection = await Transaction.aggregate([
-    { $match: { type: 'Income' } },
+    { $match: { society: sid, type: 'Income' } },
     { $group: { _id: null, total: { $sum: '$amount' } } },
   ]);
   const expense = await Transaction.aggregate([
-    { $match: { type: 'Expense' } },
+    { $match: { society: sid, type: 'Expense' } },
     { $group: { _id: null, total: { $sum: '$amount' } } },
   ]);
   const outstanding = await Invoice.aggregate([
-    { $match: { status: { $in: ['Pending', 'Overdue'] } } },
+    { $match: { society: sid, status: { $in: ['Pending', 'Overdue'] } } },
     { $group: { _id: null, total: { $sum: '$amount' } } },
   ]);
 

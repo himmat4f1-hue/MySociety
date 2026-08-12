@@ -4,7 +4,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const router = makeCrudRouter(
   Resident,
   { searchFields: ['flatNo', 'tower'], populate: 'user' },
-  { read: 'any', write: ['admin', 'secretary'] }
+  { read: 'any', write: ['secretary'] }
 );
 
 module.exports = router;

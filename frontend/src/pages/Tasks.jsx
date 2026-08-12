@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Housekeeping task checklist - cleaning, upkeep and area assignments',
   endpoint: '/tasks',
   searchPlaceholder: 'Search by task title, area...',
-  canWrite: (role) => ['admin', 'secretary', 'housekeeping'].includes(role),
+  canWrite: (role) => ['secretary', 'housekeeping'].includes(role),
   statCards: [
     { label: 'Total Tasks', icon: ClipboardList, color: 'blue', compute: (d, t) => t },
     { label: 'Pending', icon: CircleDot, color: 'red', compute: (d) => d.filter((x) => x.status === 'Pending').length },

@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Manage and monitor all amenities and facilities',
   endpoint: '/amenities',
   searchPlaceholder: 'Search amenities by name or type...',
-  canWrite: (role) => ['admin', 'secretary'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Amenities', icon: Dumbbell, color: 'blue', compute: (d, t) => t },
     { label: 'Available', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.status === 'Available').length },

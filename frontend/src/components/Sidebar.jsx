@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { NAV_ITEMS } from '../config/navConfig';
 
 const roleColors = {
-  admin: 'bg-slate-900',
   security: 'bg-slate-900',
   resident: 'bg-emerald-800',
   accountant: 'bg-violet-800',
@@ -37,7 +36,7 @@ const Sidebar = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
+            end={item.path === '/app'}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 isActive ? 'bg-white/15 font-semibold' : 'text-white/80 hover:bg-white/10'

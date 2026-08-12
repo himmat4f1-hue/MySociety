@@ -4,7 +4,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const router = makeCrudRouter(
   Policy,
   { searchFields: ['title'] },
-  { read: 'any', write: ['admin', 'secretary', 'chairman', 'treasurer'] }
+  { read: 'any', write: ['secretary', 'treasurer'] }
 );
 
 module.exports = router;

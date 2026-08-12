@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     type: { type: String, enum: ['Income', 'Expense'], required: true },
     category: { type: String, required: true }, // Maintenance, Utilities, Salaries, Admin, Others / Collection
     description: { type: String, required: true },

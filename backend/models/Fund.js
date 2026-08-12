@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const fundSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     type: { type: String, enum: ['Required', 'Celebration'], required: true },
     title: { type: String, required: true }, // Lift Modernization Project, Diwali Celebration 2024
     targetAmount: { type: Number, default: 0 },

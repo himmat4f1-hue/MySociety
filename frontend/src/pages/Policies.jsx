@@ -7,7 +7,7 @@ const config = {
   subtitle: 'View all society policies, rules and by-laws',
   endpoint: '/policies',
   searchPlaceholder: 'Search policies by title...',
-  canWrite: (role) => ['admin', 'secretary', 'chairman'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [{ label: 'Total Policies', icon: ScrollText, color: 'blue', compute: (d, t) => t }],
   columns: [
     { key: 'title', label: 'Policy' },

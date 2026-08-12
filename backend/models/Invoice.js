@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const invoiceSchema = new mongoose.Schema(
   {
-    invoiceNo: { type: String, required: true, unique: true },
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
+    invoiceNo: { type: String, required: true },
     flatNo: { type: String, required: true },
     resident: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     residentName: String,
@@ -14,5 +15,7 @@ const invoiceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+invoiceSchema.index({ society: 1, invoiceNo: 1 }, { unique: true });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);

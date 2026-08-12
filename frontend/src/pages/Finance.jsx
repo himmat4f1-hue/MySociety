@@ -18,7 +18,7 @@ const Finance = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState('Income');
 
-  const canWrite = ['admin', 'accountant'].includes(user?.role);
+  const canWrite = ['accountant', 'treasurer'].includes(user?.role);
 
   const load = async () => {
     const [invRes, txRes] = await Promise.all([

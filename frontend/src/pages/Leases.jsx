@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Track tenant lease agreements, rent and expiry',
   endpoint: '/leases',
   searchPlaceholder: 'Search by flat no., tenant name...',
-  canWrite: (role) => ['admin', 'secretary'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Leases', icon: FileSignature, color: 'blue', compute: (d, t) => t },
     { label: 'Active', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.status === 'Active').length },

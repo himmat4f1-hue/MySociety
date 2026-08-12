@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Track cleaning supplies, safety gear and equipment stock',
   endpoint: '/supplies',
   searchPlaceholder: 'Search by item name...',
-  canWrite: (role) => ['admin', 'secretary', 'housekeeping'].includes(role),
+  canWrite: (role) => ['secretary', 'housekeeping'].includes(role),
   statCards: [
     { label: 'Total Items', icon: Boxes, color: 'blue', compute: (d, t) => t },
     { label: 'In Stock', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.status === 'In Stock').length },

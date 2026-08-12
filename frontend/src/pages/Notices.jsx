@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Publish and manage important notices and announcements',
   endpoint: '/notices',
   searchPlaceholder: 'Search notices by title...',
-  canWrite: (role) => ['admin', 'secretary', 'chairman'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Notices', icon: Megaphone, color: 'blue', compute: (d, t) => t },
     { label: 'Published', icon: Pin, color: 'green', compute: (d) => d.filter((x) => x.status === 'Published').length },

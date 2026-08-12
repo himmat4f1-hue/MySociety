@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const gatePassSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     type: { type: String, enum: ['Visitor', 'Vendor', 'Vehicle', 'Service Staff'], required: true },
     name: { type: String, required: true },
     mobile: { type: String, default: '' },

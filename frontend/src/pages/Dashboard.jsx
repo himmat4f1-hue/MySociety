@@ -18,12 +18,11 @@ import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
 
 const roleGreeting = {
-  admin: 'Here is what’s happening across your society today.',
   security: 'Focused on gate entry, visitor management and security alerts.',
   resident: 'Access community updates, bookings, complaints and billing.',
   accountant: 'Access to financial data, invoices, receipts and reports.',
   secretary: 'Manage communication, documents, meetings and administrative tasks.',
-  chairman: 'High-level overview, key insights and decision-making reports.',
+  chairman: 'View-only oversight of everything Secretary manages, plus Society Structure rights.',
   treasurer: 'Financial oversight, approvals, budgets, investments and funds.',
   committee_member: 'Review meetings, voting, projects, finance visibility and complaints.',
   tenant: 'Access your lease, dues, visitors, amenities and society notices.',
@@ -58,7 +57,7 @@ const Dashboard = () => {
   return (
     <Layout title={`Welcome, ${user?.name}`} subtitle={roleGreeting[role]}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {(role === 'admin' || role === 'security' || role === 'secretary' || role === 'chairman') && (
+        {(role === 'security' || role === 'secretary' || role === 'chairman') && (
           <>
             <StatCard icon={Building2} label="Total Units" value={stats.units.total} color="blue" />
             <StatCard icon={Users} label="Residents" value={stats.residents.total} color="green" />

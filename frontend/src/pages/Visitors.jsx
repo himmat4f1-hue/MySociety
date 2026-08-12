@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Track and manage all society visitors',
   endpoint: '/visitors',
   searchPlaceholder: 'Search by visitor name, mobile, flat no...',
-  canWrite: (role) => ['admin', 'security', 'secretary'].includes(role),
+  canWrite: (role) => ['security', 'secretary'].includes(role),
   statCards: [
     { label: 'Total Visitors', icon: UserCheck, color: 'blue', compute: (d, t) => t },
     { label: 'Currently Inside', icon: LogIn, color: 'green', compute: (d) => d.filter((x) => x.status === 'Inside').length },

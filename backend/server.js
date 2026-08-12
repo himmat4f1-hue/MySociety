@@ -3,10 +3,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { setupGuestCleanupJob } = require('./utils/cleanupGuestSandboxes');
 
-connectDB();
+// Initialize database connection
+connectDB().catch(err => {
+  console.error('Failed to connect to database:', err);
+  process.exit(1);
+});
+
+setupGuestCleanupJob();
 
 const app = express();
 
@@ -17,6 +24,8 @@ app.use(morgan('dev'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'MySociety API running' }));
 
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/plans', require('./routes/planRoutes'));
+app.use('/api/pets', require('./routes/petRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/residents', require('./routes/residentRoutes'));
@@ -41,6 +50,16 @@ app.use('/api/shifts', require('./routes/shiftRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
 app.use('/api/supplies', require('./routes/supplyRoutes'));
 app.use('/api/leases', require('./routes/leaseRoutes'));
+app.use('/api/flat-owners', require('./routes/flatOwnerRoutes'));
+app.use('/api/family-members', require('./routes/familyMemberRoutes'));
+app.use('/api/vehicles', require('./routes/vehicleRoutes'));
+app.use('/api/home-services', require('./routes/homeServiceRoutes'));
+app.use('/api/role-checklists', require('./routes/roleChecklistRoutes'));
+app.use('/api/agenda-items', require('./routes/agendaItemRoutes'));
+app.use('/api/meeting-attendance', require('./routes/meetingAttendanceRoutes'));
+app.use('/api/committee-votes', require('./routes/committeeVoteRoutes'));
+app.use('/api/management-votes', require('./routes/managementVoteRoutes'));
+app.use('/api/society-structure', require('./routes/societyStructureRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,35 +1,78 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { sequelize } = require('../config/db');
 
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 6, select: false },
-    phone: { type: String, trim: true },
-    role: {
-      type: String,
-      enum: ['admin', 'security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant', 'housekeeping'],
-      default: 'resident',
-    },
-    residentType: { type: String, enum: ['owner', 'tenant', null], default: null },
-    flatNo: { type: String, default: null },
-    tower: { type: String, default: null },
-    avatar: { type: String, default: '' },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
-  { timestamps: true }
-);
-
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    trim: true,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  phone: {
+    type: DataTypes.STRING,
+    trim: true,
+  },
+  role: {
+    type: DataTypes.ENUM('security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant', 'housekeeping'),
+    defaultValue: 'resident',
+  },
+  residentType: {
+    type: DataTypes.ENUM('owner', 'tenant'),
+    allowNull: true,
+  },
+  flatNo: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  tower: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    defaultValue: '',
+  },
+  status: {
+    type: DataTypes.ENUM('active', 'inactive'),
+    defaultValue: 'active',
+  },
+  resetPasswordCode: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  resetPasswordExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+}, {
+  timestamps: true,
+  hooks: {
+    beforeSave: async (user) => {
+      if (!user.changed('password')) return;
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(user.password, salt);
+    },
+  },
 });
 
-userSchema.methods.matchPassword = async function (enteredPassword) {
+User.prototype.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

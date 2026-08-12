@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Track society investments, assets and their current value',
   endpoint: '/investments',
   searchPlaceholder: 'Search investments...',
-  canWrite: (role) => ['admin', 'accountant'].includes(role),
+  canWrite: (role) => ['accountant'].includes(role),
   statCards: [
     { label: 'Total Records', icon: Landmark, color: 'blue', compute: (d, t) => t },
     { label: 'Total Value', icon: TrendingUp, color: 'green', compute: (d) => `₹${d.reduce((s, x) => s + (x.amount || 0), 0).toLocaleString('en-IN')}` },

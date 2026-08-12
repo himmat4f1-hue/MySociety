@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     resident: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     residentName: String,
     date: { type: Date, default: Date.now },

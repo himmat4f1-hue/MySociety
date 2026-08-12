@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Create and manage society voting and polls',
   endpoint: '/polls',
   searchPlaceholder: 'Search polls by title...',
-  canWrite: (role) => ['admin', 'secretary', 'chairman'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Polls', icon: Vote, color: 'blue', compute: (d, t) => t },
     { label: 'Active', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.status === 'Active').length },

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const documentSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     name: { type: String, required: true },
     category: { type: String, required: true }, // Governance, Finance, Maintenance, Safety, Amenities, Legal, General
     type: { type: String, default: 'File' }, // Folder, PDF, Excel, Word, Image, PPT

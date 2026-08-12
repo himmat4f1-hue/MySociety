@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Store, organize, and manage all important documents',
   endpoint: '/documents',
   searchPlaceholder: 'Search documents by name or keyword...',
-  canWrite: (role) => ['admin', 'secretary', 'chairman'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Documents', icon: FileText, color: 'blue', compute: (d, t) => t },
     { label: 'Folders', icon: Folder, color: 'green', compute: (d) => d.filter((x) => x.isFolder).length },

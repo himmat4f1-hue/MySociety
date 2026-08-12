@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const supplySchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     itemName: { type: String, required: true }, // Detergent, Gloves, Garbage Bags, etc.
     category: { type: String, enum: ['Cleaning', 'Safety', 'Equipment', 'Others'], default: 'Cleaning' },
     quantity: { type: Number, required: true },

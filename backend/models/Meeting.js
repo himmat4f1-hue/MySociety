@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const meetingSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     title: { type: String, required: true },
     type: { type: String, default: 'General' }, // General, Committee, Internal
     date: { type: Date, required: true },

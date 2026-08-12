@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     title: { type: String, required: true },
     description: { type: String, default: '' },
     area: { type: String, required: true }, // Lobby, Tower A Corridor, Club House, Garden, etc.

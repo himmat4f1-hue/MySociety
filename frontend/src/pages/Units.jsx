@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Manage all units in the society',
   endpoint: '/units',
   searchPlaceholder: 'Search by flat no., tower...',
-  canWrite: (role) => ['admin', 'secretary'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Units', icon: Building2, color: 'blue', compute: (d, t) => t },
     { label: 'Occupied', icon: Home, color: 'green', compute: (d) => d.filter((x) => x.status === 'Occupied').length },

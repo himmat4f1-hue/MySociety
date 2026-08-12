@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const cameraRequestSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     area: { type: String, required: true }, // Main Gate, Parking Area, Tower Entry, etc.
     date: { type: Date, required: true },
     time: { type: String, default: '' },

@@ -4,7 +4,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const router = makeCrudRouter(
   Supply,
   { searchFields: ['itemName', 'category'] },
-  { read: ['admin', 'secretary', 'chairman', 'housekeeping'], write: ['admin', 'secretary', 'housekeeping'] }
+  { read: ['secretary', 'chairman', 'housekeeping'], write: ['secretary', 'housekeeping'] }
 );
 
 module.exports = router;

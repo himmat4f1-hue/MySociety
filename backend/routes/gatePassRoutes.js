@@ -4,7 +4,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const router = makeCrudRouter(
   GatePass,
   { searchFields: ['name', 'flatNo', 'vehicleNumber'] },
-  { read: ['admin', 'security', 'secretary', 'chairman', 'resident', 'tenant'], write: ['admin', 'security', 'secretary'] }
+  { read: ['security', 'secretary', 'chairman', 'resident', 'tenant'], write: ['security', 'secretary'] }
 );
 
 module.exports = router;

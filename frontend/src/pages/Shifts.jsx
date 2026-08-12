@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Manage security and housekeeping shift roster, attendance and handover',
   endpoint: '/shifts',
   searchPlaceholder: 'Search by staff name...',
-  canWrite: (role) => ['admin', 'security', 'secretary', 'housekeeping'].includes(role),
+  canWrite: (role) => ['security', 'secretary', 'housekeeping'].includes(role),
   statCards: [
     { label: 'Total Shifts', icon: CalendarClock, color: 'blue', compute: (d, t) => t },
     { label: 'Present', icon: UserCheck2, color: 'green', compute: (d) => d.filter((x) => x.status === 'Present').length },

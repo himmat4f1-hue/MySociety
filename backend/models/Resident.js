@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const residentSchema = new mongoose.Schema(
   {
+    society: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true, index: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     name: { type: String, default: '' },
     flatNo: { type: String, required: true },

@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Required funds & public celebration fund tracking',
   endpoint: '/funds',
   searchPlaceholder: 'Search funds by title...',
-  canWrite: (role) => ['admin', 'accountant'].includes(role),
+  canWrite: (role) => ['accountant'].includes(role),
   statCards: [
     { label: 'Total Funds', icon: PiggyBank, color: 'blue', compute: (d, t) => t },
     { label: 'Total Collected', icon: IndianRupee, color: 'green', compute: (d) => `₹${d.reduce((s, x) => s + (x.collectedAmount || 0), 0).toLocaleString('en-IN')}` },

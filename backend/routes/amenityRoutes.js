@@ -4,7 +4,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const router = makeCrudRouter(
   Amenity,
   { searchFields: ['name', 'type', 'building'] },
-  { read: 'any', write: ['admin', 'secretary'] }
+  { read: 'any', write: ['secretary'] }
 );
 
 module.exports = router;

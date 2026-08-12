@@ -7,7 +7,7 @@ const config = {
   subtitle: 'Manage all residents and their details',
   endpoint: '/residents',
   searchPlaceholder: 'Search residents, flat no...',
-  canWrite: (role) => ['admin', 'secretary'].includes(role),
+  canWrite: (role) => ['secretary'].includes(role),
   statCards: [
     { label: 'Total Residents', icon: Users, color: 'blue', compute: (d, t) => t },
     { label: 'Owners', icon: Home, color: 'green', compute: (d) => d.filter((x) => x.type === 'Owner').length },

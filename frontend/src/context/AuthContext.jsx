@@ -30,11 +30,35 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('mysociety_token', res.data.token);
-    localStorage.setItem('mysociety_user', JSON.stringify(res.data));
-    setUser(res.data);
+  const persistSession = (data) => {
+    localStorage.setItem('mysociety_token', data.token);
+    localStorage.setItem('mysociety_user', JSON.stringify(data));
+    setUser(data);
+  };
+
+  // Progressive login: call with { email, password } first. The response is
+  // EITHER { step: 'society'|'role'|'flat', options: [...] } - meaning the
+  // person needs to pick something before we can continue - OR a full session
+  // object (has a `token`), meaning login is complete. Re-call this same
+  // function again with the accumulated selections (societyId/role/flatId)
+  // until you get a session back.
+  const login = async ({ email, password, societyId, role, flatId }) => {
+    const res = await api.post('/auth/login', { email, password, societyId, role, flatId });
+    if (res.data.token) {
+      persistSession(res.data);
+    }
+    return res.data;
+  };
+
+  const registerSociety = async (payload) => {
+    const res = await api.post('/auth/register-society', payload);
+    persistSession(res.data);
+    return res.data;
+  };
+
+  const guestLogin = async () => {
+    const res = await api.post('/auth/guest');
+    persistSession(res.data);
     return res.data;
   };
 
@@ -45,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, registerSociety, guestLogin, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
