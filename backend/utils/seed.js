@@ -13,6 +13,7 @@ const User = require('../models/User');
 const Society = require('../models/Society');
 const Plan = require('../models/Plan');
 const Membership = require('../models/Membership');
+const provisionUnits = require('./provisionUnits');
 const Unit = require('../models/Unit');
 const Building = require('../models/Building');
 const Resident = require('../models/Resident');
@@ -407,6 +408,65 @@ const runSeed = async () => {
     { society: sid, electionDate, role: 'Chairman', voterFlatId: 'B-202', candidateFlatId: 'A-101' },
   ]);
 
+  // ---------------------------------------------------------------------
+  // Multi-society / multi-role / multi-flat demo account. This one login
+  // (multiuser@mysociety.com) belongs to THREE different societies, holds a
+  // different role in each, and owns two flats in two of them - exactly the
+  // scenario the account switcher (login screen + Topbar "switch account")
+  // is built to handle:
+  //   Greenfield Residency  -> Committee Member, 2 flats (A-104, A-105)
+  //   Palm Heights          -> Secretary,        2 flats (A-101, A-102)
+  //   Lake View Apartments  -> Resident/Member,  1 flat  (A-101)
+  // ---------------------------------------------------------------------
+  console.log('Creating multi-society demo account (account switcher demo)...');
+  const multiUser = await User.create({
+    name: 'Vikram Mehta',
+    email: 'multiuser@mysociety.com',
+    password,
+    role: 'secretary',
+    phone: '9876500098',
+  });
+
+  // Society 1: Greenfield Residency (already created above) - Committee Member, 2 flats
+  await Membership.bulkCreate([
+    { user: multiUser.id, society: sid, role: 'committee_member', flatNo: 'A-104', tower: 'Tower A', flatId: 'A-104' },
+    { user: multiUser.id, society: sid, role: 'committee_member', flatNo: 'A-105', tower: 'Tower A', flatId: 'A-105' },
+  ]);
+
+  // Society 2: Palm Heights - Secretary, 2 flats
+  const palmHeights = await Society.create({
+    name: 'Palm Heights',
+    slug: 'palm-heights',
+    city: 'Pune',
+    buildingsCount: 1,
+    totalFlats: 10,
+    status: 'Active',
+  });
+  await provisionUnits(palmHeights.id, 1, 10);
+  await Membership.bulkCreate([
+    { user: multiUser.id, society: palmHeights.id, role: 'secretary', flatNo: 'A-101', tower: 'Tower A', flatId: 'A-101' },
+    { user: multiUser.id, society: palmHeights.id, role: 'secretary', flatNo: 'A-102', tower: 'Tower A', flatId: 'A-102' },
+  ]);
+
+  // Society 3: Lake View Apartments - Resident (plain member), 1 flat
+  const lakeView = await Society.create({
+    name: 'Lake View Apartments',
+    slug: 'lake-view-apartments',
+    city: 'Bengaluru',
+    buildingsCount: 1,
+    totalFlats: 8,
+    status: 'Active',
+  });
+  await provisionUnits(lakeView.id, 1, 8);
+  await Membership.create({
+    user: multiUser.id,
+    society: lakeView.id,
+    role: 'resident',
+    flatNo: 'A-101',
+    tower: 'Tower A',
+    flatId: 'A-101',
+  });
+
   console.log('\n✅ Seed data created successfully!\n');
   console.log(`Demo Society: "${demoSociety.name}"`);
   console.log('Demo login credentials (password for all: 123456):');
@@ -418,11 +478,9 @@ const runSeed = async () => {
   console.log('  Committee Member  -> committee@mysociety.com');
   console.log('  Housekeeping      -> housekeeping@mysociety.com');
   console.log('  Resident (Owner of A-101 AND D-402, ALSO Secretary) -> rahul@mysociety.com');
-  console.log('    ^ log in as rahul to see the Role + Flat selection screens in action');
   console.log('  Tenant            -> tenant@mysociety.com');
-  console.log('\nNote: rahul@mysociety.com is a member of only one society here, but the');
-  console.log('Membership model supports the same email belonging to multiple societies -');
-  console.log('try registering a second society from the Plans & Offers page with the same email.');
+  console.log('  Multi-society (3 societies, 3 roles, 5 flats total)  -> multiuser@mysociety.com');
+  console.log('    ^ log in as multiuser or rahul to see the account switcher in action');
 
   return { society: demoSociety.name };
 };

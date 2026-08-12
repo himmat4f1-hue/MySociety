@@ -122,6 +122,10 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     leasesExpiringSoon,
     pendingLeaseCount,
     finance,
+    totalResidents,
+    totalVisitorsToday,
+    securityStaffCount,
+    housekeepingStaffCount,
   ] = await Promise.all([
     countBy(Unit, 'status'),
     countBy(Pet, 'type'),
@@ -133,18 +137,20 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     Amenity.findAll({ where: { society: sid } }),
     Fund.findAll({ where: { society: sid } }),
     Investment.findAll({ where: { society: sid } }),
-    Membership.findAll({ where: { society: sid, role: { [Op.ne]: null } } }),
+    Membership.findAll({ where: { society: sid, role: { [Op.notIn]: ['resident', 'tenant'] } } }),
     require('../models/Lease').count({ where: { society: sid, status: 'Expiring Soon' } }),
     require('../models/Lease').count({ where: { society: sid } }),
     Transaction.findAll({ where: { society: sid } }),
+    Membership.count({ where: { society: sid, role: { [Op.in]: ['resident', 'tenant'] }, status: 'active' } }),
+    Visitor.count({ where: { society: sid, createdAt: { [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
+    Membership.count({ where: { society: sid, role: 'security', status: 'active' } }),
+    Membership.count({ where: { society: sid, role: 'housekeeping', status: 'active' } }),
   ]);
 
   const managementUserIds = [...new Set(management.map((m) => m.user))];
   const managementUsers = await User.findAll({ where: { id: { [Op.in]: managementUserIds } }, attributes: ['id', 'name'] });
   const nameById = new Map(managementUsers.map((u) => [u.id, u.name]));
-  const managementList = management
-    .filter((m) => m.role !== 'resident' && m.role !== 'tenant')
-    .map((m) => ({ role: m.role, name: nameById.get(m.user) || '—' }));
+  const managementList = management.map((m) => ({ role: m.role, name: nameById.get(m.user) || '—' }));
 
   const totalAssets = investments.reduce((s, i) => s + Number(i.amount || 0), 0);
   const totalFund = funds.reduce((s, f) => s + Number(f.collectedAmount || 0), 0);
@@ -154,6 +160,9 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
 
   res.json({
     units: unitsByStatus,
+    residents: totalResidents,
+    visitorsToday: totalVisitorsToday,
+    staff: { security: securityStaffCount, housekeeping: housekeepingStaffCount },
     pets: { byType: petsByType, total: Object.values(petsByType).reduce((a, b) => a + b, 0) },
     vehicles: { byType: vehiclesByType, total: Object.values(vehiclesByType).reduce((a, b) => a + b, 0) },
     homeServices: { byType: homeServicesByType, total: Object.values(homeServicesByType).reduce((a, b) => a + b, 0) },

@@ -7,8 +7,6 @@ const Membership = require('../models/Membership');
 const provisionUnits = require('../utils/provisionUnits');
 const seedGuestSandbox = require('../utils/demoData');
 
-const FLAT_ROLES = ['resident', 'tenant'];
-
 const slugify = (str) =>
   str
     .toLowerCase()
@@ -116,86 +114,77 @@ const registerSociety = asyncHandler(async (req, res) => {
   res.status(201).json(session);
 });
 
-// @desc  Progressive login resolver. Send { email, password } first; the
-// response tells you the next thing to ask the person to pick (society, then
-// role, then flat - only the steps that are actually ambiguous are returned).
-// Re-call this same endpoint including whatever has been picked so far
-// (societyId, role, flatId) until the response contains a "token" instead of
-// a "step" - that means login is complete.
-//   1) email+password only            -> may ask to pick a SOCIETY
-//   2) + societyId                     -> may ask to pick a ROLE (e.g. Owner vs Secretary)
-//   3) + role (if resident/tenant)     -> may ask to pick a FLAT (if they have more than one)
+// @desc  Login resolver. Send { email, password } first. If the account has
+// only one society/role/flat combination ("account"), logs straight in. If it
+// has more than one, responds with the FULL list of every account up front
+// (society name, role, flat) so the person can pick exactly which one to open
+// - no multi-step drill-down. Re-call with { email, password, membershipId }
+// using the id from the chosen option to complete login.
 // @route POST /api/auth/login
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password, societyId, role, flatId } = req.body;
+  const { email, password, membershipId } = req.body;
 
   const user = await User.findOne({ where: { email: String(email || '').toLowerCase().trim() } });
   if (!user || !(await user.matchPassword(password))) {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
 
-  let memberships = await Membership.findAll({ where: { user: user.id, status: 'active' } });
+  const memberships = await Membership.findAll({ where: { user: user.id, status: 'active' } });
   if (memberships.length === 0) {
     return res.status(404).json({ message: 'This account is not linked to any society yet. Please register a society from the Plans & Offers page.' });
   }
 
+  if (memberships.length === 1) {
+    const session = await issueSessionResponse(user, memberships[0]);
+    return res.json(session);
+  }
+
+  if (membershipId) {
+    const chosen = memberships.find((m) => m.id === membershipId);
+    if (!chosen) {
+      return res.status(400).json({ message: 'That account selection is not valid for this login.' });
+    }
+    const session = await issueSessionResponse(user, chosen);
+    return res.json(session);
+  }
+
+  // More than one account and none chosen yet - return the full list.
   const societyIds = [...new Set(memberships.map((m) => m.society))];
   const societies = await Society.findAll({ where: { id: societyIds } });
   const societyById = new Map(societies.map((s) => [s.id, s]));
 
-  // Step 1: narrow down to a single Society
-  if (societyId) {
-    memberships = memberships.filter((m) => m.society === societyId);
-  }
-  const distinctSocietyIds = [...new Set(memberships.map((m) => m.society))];
-  if (distinctSocietyIds.length === 0) {
-    return res.status(404).json({ message: 'No matching society membership found.' });
-  }
-  if (distinctSocietyIds.length > 1) {
-    return res.json({
-      step: 'society',
-      options: distinctSocietyIds.map((sid) => ({ societyId: sid, name: societyById.get(sid)?.name, slug: societyById.get(sid)?.slug })),
-    });
-  }
-  const chosenSociety = societyById.get(distinctSocietyIds[0]);
+  const options = memberships
+    .map((m) => ({
+      membershipId: m.id,
+      societyId: m.society,
+      societyName: societyById.get(m.society)?.name || 'Unknown Society',
+      role: m.role,
+      flatNo: m.flatNo || null,
+      tower: m.tower || null,
+      flatId: m.flatId || null,
+    }))
+    // group by society so the list reads naturally (all of society A's roles together, then society B's...)
+    .sort((a, b) => a.societyName.localeCompare(b.societyName));
 
-  // Step 2: narrow down to a single Role within that society
-  if (role) {
-    memberships = memberships.filter((m) => m.role === role);
-  }
-  const distinctRoles = [...new Set(memberships.map((m) => m.role))];
-  if (distinctRoles.length === 0) {
-    return res.status(404).json({ message: 'No matching role found for that selection.' });
-  }
-  if (distinctRoles.length > 1) {
-    return res.json({
-      step: 'role',
-      societyId: chosenSociety.id,
-      societyName: chosenSociety.name,
-      options: distinctRoles.map((r) => ({ role: r })),
-    });
-  }
-  const chosenRole = distinctRoles[0];
+  res.json({ step: 'select', options });
+});
 
-  // Step 3: narrow down to a single Flat - only relevant for owner/tenant roles
-  if (FLAT_ROLES.includes(chosenRole)) {
-    if (flatId) {
-      memberships = memberships.filter((m) => m.flatId === flatId);
-    }
-    const distinctFlats = [...new Set(memberships.map((m) => m.flatId).filter(Boolean))];
-    if (distinctFlats.length > 1) {
-      return res.json({
-        step: 'flat',
-        societyId: chosenSociety.id,
-        societyName: chosenSociety.name,
-        role: chosenRole,
-        options: distinctFlats.map((f) => ({ flatId: f })),
-      });
-    }
+// @desc  Switch the CURRENT logged-in session to a different account
+// (society/role/flat) the same person also has, without re-entering a
+// password. Powers the account switcher in the app (e.g. Topbar).
+// @route POST /api/auth/switch
+const switchAccount = asyncHandler(async (req, res) => {
+  const { membershipId } = req.body;
+  if (!membershipId) {
+    return res.status(400).json({ message: 'membershipId is required' });
   }
 
-  // Fully resolved - issue the token
-  const session = await issueSessionResponse(user, memberships[0]);
+  const membership = await Membership.findOne({ where: { id: membershipId, user: req.user.id, status: 'active' } });
+  if (!membership) {
+    return res.status(403).json({ message: 'You do not have access to that account.' });
+  }
+
+  const session = await issueSessionResponse(req.user, membership);
   res.json(session);
 });
 
@@ -246,8 +235,8 @@ const getMe = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc  List all distinct society/role/flat combinations the current
-// authenticated user has. Powers a "switch account" option in the UI.
+// @desc  List all distinct society/role/flat combinations ("accounts") the
+// current authenticated user has. Powers the account switcher in the UI.
 // @route GET /api/auth/my-societies
 const getMySocieties = asyncHandler(async (req, res) => {
   const memberships = await Membership.findAll({ where: { user: req.user.id, status: 'active' } });
@@ -255,15 +244,20 @@ const getMySocieties = asyncHandler(async (req, res) => {
   const societies = await Society.findAll({ where: { id: societyIds } });
   const societyById = new Map(societies.map((s) => [s.id, s]));
 
-  res.json(
-    memberships.map((m) => ({
+  const list = memberships
+    .map((m) => ({
+      membershipId: m.id,
       societyId: m.society,
-      name: societyById.get(m.society)?.name,
+      name: societyById.get(m.society)?.name || 'Unknown Society',
       slug: societyById.get(m.society)?.slug,
       role: m.role,
-      flatId: m.flatId,
+      flatNo: m.flatNo || null,
+      tower: m.tower || null,
+      flatId: m.flatId || null,
     }))
-  );
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  res.json(list);
 });
 
 // @desc  Step 1 of "forgot password": generate a 6-digit reset code.
@@ -307,4 +301,4 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: 'Password reset successful. You can now log in with your new password.' });
 });
 
-module.exports = { registerSociety, loginUser, guestLogin, getMe, getMySocieties, forgotPassword, resetPassword };
+module.exports = { registerSociety, loginUser, switchAccount, guestLogin, getMe, getMySocieties, forgotPassword, resetPassword };

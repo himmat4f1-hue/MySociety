@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Loader2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Building2, Loader2, Sparkles, ArrowLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import PublicLayout from '../components/PublicLayout';
@@ -13,8 +13,9 @@ const DEMO_ACCOUNTS = [
   { role: 'Treasurer', email: 'treasurer@mysociety.com' },
   { role: 'Committee Member', email: 'committee@mysociety.com' },
   { role: 'Housekeeping', email: 'housekeeping@mysociety.com' },
-  { role: 'Owner (2 flats) + Secretary - try this one!', email: 'rahul@mysociety.com' },
+  { role: 'Owner (2 flats) + Secretary', email: 'rahul@mysociety.com' },
   { role: 'Tenant', email: 'tenant@mysociety.com' },
+  { role: '3 societies, 3 roles, 5 flats - try this one!', email: 'multiuser@mysociety.com' },
 ];
 
 const ROLE_LABELS = {
@@ -35,6 +36,20 @@ const TABS = [
   { id: 'forgot', label: 'Forgot Password' },
 ];
 
+// Groups a flat list of {membershipId, societyId, societyName, role, flatNo, ...}
+// options into [{ societyId, societyName, accounts: [...] }] so the picker can
+// show one heading per society with all of that society's roles/flats under it.
+const groupBySociety = (options) => {
+  const bySociety = new Map();
+  options.forEach((opt) => {
+    if (!bySociety.has(opt.societyId)) {
+      bySociety.set(opt.societyId, { societyId: opt.societyId, societyName: opt.societyName, accounts: [] });
+    }
+    bySociety.get(opt.societyId).accounts.push(opt);
+  });
+  return [...bySociety.values()];
+};
+
 const Login = () => {
   const [tab, setTab] = useState('login');
   const { login, guestLogin } = useAuth();
@@ -47,19 +62,20 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
 
-  // Progressive resolution state: what the last login() call is asking us to pick
-  const [pending, setPending] = useState(null); // { step, options, societyId?, societyName?, role? }
-  const [selections, setSelections] = useState({}); // accumulated societyId/role/flatId
+  // When the account has more than one society/role/flat, this holds the full
+  // list of options returned by the backend so the person can pick directly.
+  const [accountOptions, setAccountOptions] = useState(null);
+  const [pickLoading, setPickLoading] = useState(null); // membershipId currently being confirmed
 
-  const attemptLogin = async (extra = {}) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
+    setAccountOptions(null);
     setLoading(true);
     try {
-      const merged = { ...selections, ...extra };
-      const result = await login({ email, password, ...merged });
-      if (result.step) {
-        setPending(result);
-        setSelections(merged);
+      const result = await login({ email, password });
+      if (result.step === 'select') {
+        setAccountOptions(result.options);
       } else {
         navigate('/app');
       }
@@ -70,20 +86,23 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSelections({});
-    setPending(null);
-    attemptLogin({});
-  };
-
-  const handlePick = (key, value) => {
-    attemptLogin({ [key]: value });
+  const handlePickAccount = async (membershipId) => {
+    setError('');
+    setPickLoading(membershipId);
+    try {
+      const result = await login({ email, password, membershipId });
+      if (result.token) {
+        navigate('/app');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not open that account. Please try again.');
+    } finally {
+      setPickLoading(null);
+    }
   };
 
   const handleBack = () => {
-    setPending(null);
-    setSelections({});
+    setAccountOptions(null);
     setError('');
   };
 
@@ -140,6 +159,8 @@ const Login = () => {
     }
   };
 
+  const groupedAccounts = accountOptions ? groupBySociety(accountOptions) : [];
+
   return (
     <PublicLayout>
       <div className="flex items-center justify-center px-4 py-12">
@@ -160,8 +181,7 @@ const Login = () => {
                   onClick={() => {
                     setTab(t.id);
                     setError('');
-                    setPending(null);
-                    setSelections({});
+                    setAccountOptions(null);
                   }}
                   className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -172,8 +192,8 @@ const Login = () => {
               ))}
             </div>
 
-            {/* ---- LOGIN TAB ---- */}
-            {tab === 'login' && !pending && (
+            {/* ---- LOGIN TAB - email/password form ---- */}
+            {tab === 'login' && !accountOptions && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
@@ -190,59 +210,42 @@ const Login = () => {
               </form>
             )}
 
-            {/* ---- PROGRESSIVE SELECTION (society / role / flat) ---- */}
-            {tab === 'login' && pending && (
+            {/* ---- LOGIN TAB - full account picker (shown when the account has more than one) ---- */}
+            {tab === 'login' && accountOptions && (
               <div>
-                {pending.step === 'society' && (
-                  <p className="text-sm text-slate-600 mb-4">Your account belongs to more than one society. Which one would you like to enter?</p>
-                )}
-                {pending.step === 'role' && (
-                  <p className="text-sm text-slate-600 mb-4">
-                    You have more than one role in <strong>{pending.societyName}</strong>. How are you logging in today?
-                  </p>
-                )}
-                {pending.step === 'flat' && (
-                  <p className="text-sm text-slate-600 mb-4">
-                    You have more than one flat as {ROLE_LABELS[pending.role] || pending.role} in <strong>{pending.societyName}</strong>. Which flat is this for?
-                  </p>
-                )}
+                <p className="text-sm text-slate-600 mb-4">
+                  Your account has access to <strong>{accountOptions.length}</strong> {accountOptions.length === 1 ? 'account' : 'accounts'} across{' '}
+                  <strong>{groupedAccounts.length}</strong> {groupedAccounts.length === 1 ? 'society' : 'societies'}. Choose which one to open:
+                </p>
 
-                <div className="space-y-2 mb-2">
-                  {pending.step === 'society' &&
-                    pending.options.map((s) => (
-                      <button
-                        key={s.societyId}
-                        disabled={loading}
-                        onClick={() => handlePick('societyId', s.societyId)}
-                        className="w-full text-left border border-slate-200 rounded-lg px-4 py-3 hover:border-brand-400 hover:bg-brand-50 transition-colors disabled:opacity-50"
-                      >
-                        <span className="font-medium text-slate-800">{s.name}</span>
-                      </button>
-                    ))}
-
-                  {pending.step === 'role' &&
-                    pending.options.map((r) => (
-                      <button
-                        key={r.role}
-                        disabled={loading}
-                        onClick={() => handlePick('role', r.role)}
-                        className="w-full text-left border border-slate-200 rounded-lg px-4 py-3 hover:border-brand-400 hover:bg-brand-50 transition-colors disabled:opacity-50 capitalize"
-                      >
-                        <span className="font-medium text-slate-800">{ROLE_LABELS[r.role] || r.role}</span>
-                      </button>
-                    ))}
-
-                  {pending.step === 'flat' &&
-                    pending.options.map((f) => (
-                      <button
-                        key={f.flatId}
-                        disabled={loading}
-                        onClick={() => handlePick('flatId', f.flatId)}
-                        className="w-full text-left border border-slate-200 rounded-lg px-4 py-3 hover:border-brand-400 hover:bg-brand-50 transition-colors disabled:opacity-50"
-                      >
-                        <span className="font-medium text-slate-800">Flat {f.flatId}</span>
-                      </button>
-                    ))}
+                <div className="space-y-4 mb-2 max-h-96 overflow-y-auto pr-1">
+                  {groupedAccounts.map((group) => (
+                    <div key={group.societyId}>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                        <Building2 size={12} /> {group.societyName}
+                      </p>
+                      <div className="space-y-1.5">
+                        {group.accounts.map((acc) => (
+                          <button
+                            key={acc.membershipId}
+                            disabled={pickLoading !== null}
+                            onClick={() => handlePickAccount(acc.membershipId)}
+                            className="w-full text-left border border-slate-200 rounded-lg px-4 py-2.5 hover:border-brand-400 hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
+                          >
+                            <span>
+                              <span className="font-medium text-slate-800 block">{ROLE_LABELS[acc.role] || acc.role}</span>
+                              {acc.flatId && <span className="text-xs text-slate-400">Flat {acc.flatNo || acc.flatId}{acc.tower ? ` · ${acc.tower}` : ''}</span>}
+                            </span>
+                            {pickLoading === acc.membershipId ? (
+                              <Loader2 size={16} className="animate-spin text-brand-500 shrink-0" />
+                            ) : (
+                              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
@@ -331,7 +334,7 @@ const Login = () => {
             </button>
           </div>
 
-          {tab === 'login' && !pending && (
+          {tab === 'login' && !accountOptions && (
             <div className="card mt-4">
               <p className="text-xs font-semibold text-slate-500 mb-2">DEMO ACCOUNTS (password: 123456)</p>
               <div className="grid grid-cols-1 gap-2">

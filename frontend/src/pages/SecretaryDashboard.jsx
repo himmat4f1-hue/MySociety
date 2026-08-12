@@ -46,31 +46,30 @@ const SummaryTile = ({ icon: Icon, label, value, tone = 'blue' }) => {
 };
 
 const BreakdownCard = ({ icon: Icon, title, tone, rows, total }) => {
-  const toneMap = {
-    blue: 'text-blue-600',
-    green: 'text-emerald-600',
-    purple: 'text-purple-600',
-    amber: 'text-amber-600',
-  };
+  const toneMap = { blue: 'text-blue-600', green: 'text-emerald-600', purple: 'text-purple-600', amber: 'text-amber-600' };
   return (
     <div className="card">
       <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
         <Icon size={17} className={toneMap[tone]} /> {title}
       </h3>
-      <table className="w-full text-sm">
-        <tbody>
-          {rows.map(([label, count]) => (
-            <tr key={label} className="border-b border-slate-50 last:border-0">
-              <td className="py-1.5 text-slate-600">{label}</td>
-              <td className="py-1.5 text-right font-semibold text-slate-800">{count}</td>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-400">No records yet.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {rows.map(([label, count]) => (
+              <tr key={label} className="border-b border-slate-50 last:border-0">
+                <td className="py-1.5 text-slate-600">{label}</td>
+                <td className="py-1.5 text-right font-semibold text-slate-800">{count}</td>
+              </tr>
+            ))}
+            <tr>
+              <td className="pt-2 font-semibold text-slate-800">Total</td>
+              <td className="pt-2 text-right font-bold text-slate-900">{total}</td>
             </tr>
-          ))}
-          <tr>
-            <td className="pt-2 font-semibold text-slate-800">Total</td>
-            <td className="pt-2 text-right font-bold text-slate-900">{total}</td>
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };
@@ -122,21 +121,19 @@ const roleLabel = (role) =>
 
 const SecretaryDashboard = () => {
   const { user } = useAuth();
-  const [overview, setOverview] = useState(null);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([api.get('/dashboard/overview'), api.get('/dashboard/secretary')])
-      .then(([a, b]) => {
-        setOverview(a.data);
-        setDetail(b.data);
-      })
-      .catch((err) => console.error(err))
+    api
+      .get('/dashboard/secretary')
+      .then((res) => setDetail(res.data))
+      .catch(() => setError('Could not load the dashboard right now. Please try refreshing.'))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !overview || !detail) {
+  if (loading) {
     return (
       <Layout title="Dashboard">
         <div className="text-slate-400">Loading dashboard...</div>
@@ -144,35 +141,44 @@ const SecretaryDashboard = () => {
     );
   }
 
+  if (error || !detail) {
+    return (
+      <Layout title="Dashboard">
+        <div className="text-red-600">{error || 'Something went wrong.'}</div>
+      </Layout>
+    );
+  }
+
   const units = detail.units || {};
-  const totalUnits = overview.units.total;
+  const totalUnits = (units.Occupied || 0) + (units.Vacant || 0) + (units.Maintenance || 0);
 
   return (
-    <Layout title="Dashboard" subtitle={`Welcome back, ${user?.name} — Secretary overview for your society.`}>
-      {/* Top summary row */}
+    <Layout title="Dashboard" subtitle={`Welcome back, ${user?.name} — Secretary overview for ${user?.society?.name || 'your society'}.`}>
+      {/* Row 1: flats, residents, visitors, upcoming meeting */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="card">
           <div className="flex items-center gap-2 text-slate-500 text-xs mb-2">
-            <Building2 size={16} /> No. of Flats / Houses: {totalUnits}
+            <Building2 size={16} /> No. of Flats / Houses
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <p className="text-xl font-bold text-slate-800 mb-2">{totalUnits}</p>
+          <div className="grid grid-cols-3 gap-2 text-center border-t border-slate-100 pt-2">
             <div>
               <p className="text-[11px] text-slate-400">Occupied</p>
-              <p className="font-bold text-slate-800">{units.Occupied || 0}</p>
+              <p className="font-semibold text-slate-700">{units.Occupied || 0}</p>
             </div>
             <div>
               <p className="text-[11px] text-slate-400">Vacant</p>
-              <p className="font-bold text-slate-800">{units.Vacant || 0}</p>
+              <p className="font-semibold text-slate-700">{units.Vacant || 0}</p>
             </div>
             <div>
               <p className="text-[11px] text-slate-400">Maint.</p>
-              <p className="font-bold text-slate-800">{units.Maintenance || 0}</p>
+              <p className="font-semibold text-slate-700">{units.Maintenance || 0}</p>
             </div>
           </div>
         </div>
 
-        <SummaryTile icon={Users} label="No. of Residents" value={overview.residents.total} tone="green" />
-        <SummaryTile icon={UserCheck} label="No. of Visitors Today" value={overview.visitors.today} tone="purple" />
+        <SummaryTile icon={Users} label="No. of Residents" value={detail.residents ?? 0} tone="green" />
+        <SummaryTile icon={UserCheck} label="No. of Visitors Today" value={detail.visitorsToday ?? 0} tone="purple" />
 
         <div className="card">
           <div className="flex items-center gap-2 text-slate-500 text-xs mb-2">
@@ -186,44 +192,27 @@ const SecretaryDashboard = () => {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">No upcoming meetings</p>
+            <p className="text-sm text-slate-400 pt-1">No upcoming meetings</p>
           )}
         </div>
       </div>
 
+      {/* Row 2: staff and quick counts */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <SummaryTile icon={ShieldCheck} label="Security Staff" value="—" tone="blue" />
-        <SummaryTile icon={HardHat} label="Housekeeping Staff" value="—" tone="amber" />
-        <SummaryTile icon={Crown} label="Management Roles" value={detail.management.length} tone="purple" />
+        <SummaryTile icon={ShieldCheck} label="No. of Security Staff" value={detail.staff?.security ?? 0} tone="blue" />
+        <SummaryTile icon={HardHat} label="No. of Housekeeping Staff" value={detail.staff?.housekeeping ?? 0} tone="amber" />
+        <SummaryTile icon={Crown} label="Management Roles Filled" value={detail.management.length} tone="purple" />
         <SummaryTile icon={FileClock} label="Leases Expiring Soon" value={detail.leases.expiringSoon} tone="rose" />
       </div>
 
       {/* Pets / Vehicles / Home Services */}
       <div className="grid md:grid-cols-3 gap-4 mb-6">
-        <BreakdownCard
-          icon={PawPrint}
-          title="No. of Pets (By Type)"
-          tone="purple"
-          rows={Object.entries(detail.pets.byType)}
-          total={detail.pets.total}
-        />
-        <BreakdownCard
-          icon={Car}
-          title="No. of Vehicles (By Type)"
-          tone="blue"
-          rows={Object.entries(detail.vehicles.byType)}
-          total={detail.vehicles.total}
-        />
-        <BreakdownCard
-          icon={HomeIcon}
-          title="No. of Home Services (By Type)"
-          tone="green"
-          rows={Object.entries(detail.homeServices.byType)}
-          total={detail.homeServices.total}
-        />
+        <BreakdownCard icon={PawPrint} title="No. of Pets (By Type)" tone="purple" rows={Object.entries(detail.pets.byType)} total={detail.pets.total} />
+        <BreakdownCard icon={Car} title="No. of Vehicles (By Type)" tone="blue" rows={Object.entries(detail.vehicles.byType)} total={detail.vehicles.total} />
+        <BreakdownCard icon={HomeIcon} title="No. of Home Services (By Type)" tone="green" rows={Object.entries(detail.homeServices.byType)} total={detail.homeServices.total} />
       </div>
 
-      {/* Complaints */}
+      {/* Complaints + Lease submissions */}
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <PriorityCard icon={AlertTriangle} title="Pending Complaints & Requests (By Priority)" tone="red" data={detail.complaints.pending} />
         <PriorityCard icon={CheckCircle2} title="Resolved Complaints & Requests (By Priority)" tone="green" data={detail.complaints.resolved} />
@@ -247,7 +236,7 @@ const SecretaryDashboard = () => {
         </div>
       </div>
 
-      {/* Finance + Celebration/Donation */}
+      {/* Finance + Funds & Celebrations */}
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         <div className="card">
           <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
@@ -273,14 +262,18 @@ const SecretaryDashboard = () => {
           <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
             <Gift size={17} className="text-purple-600" /> Funds &amp; Celebrations
           </h3>
-          <ul className="space-y-2 text-sm max-h-32 overflow-y-auto">
-            {detail.funds.list.map((f) => (
-              <li key={f._id} className="flex justify-between">
-                <span className="text-slate-600 truncate pr-2">{f.title}</span>
-                <span className="font-semibold text-slate-800 shrink-0">{inr(f.collectedAmount)}</span>
-              </li>
-            ))}
-          </ul>
+          {detail.funds.list.length === 0 ? (
+            <p className="text-sm text-slate-400">No funds set up yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm max-h-32 overflow-y-auto">
+              {detail.funds.list.map((f) => (
+                <li key={f._id} className="flex justify-between gap-2">
+                  <span className="text-slate-600 truncate">{f.title}</span>
+                  <span className="font-semibold text-slate-800 shrink-0">{inr(f.collectedAmount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -306,34 +299,38 @@ const SecretaryDashboard = () => {
           <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
             <Dumbbell size={17} className="text-rose-600" /> Amenities
           </h3>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-slate-400 text-left">
-                <th className="font-medium pb-1">Amenity</th>
-                <th className="font-medium pb-1 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.amenities.slice(0, 5).map((a) => (
-                <tr key={a._id} className="border-t border-slate-50">
-                  <td className="py-1.5 text-slate-700">{a.name}</td>
-                  <td className="py-1.5 text-right">
-                    <span
-                      className={`badge ${
-                        a.status === 'Available'
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : a.status === 'Under Maintenance'
-                          ? 'bg-amber-50 text-amber-600'
-                          : 'bg-red-50 text-red-600'
-                      }`}
-                    >
-                      {a.status}
-                    </span>
-                  </td>
+          {detail.amenities.length === 0 ? (
+            <p className="text-sm text-slate-400">No amenities set up yet.</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-400 text-left">
+                  <th className="font-medium pb-1">Amenity</th>
+                  <th className="font-medium pb-1 text-right">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {detail.amenities.slice(0, 6).map((a) => (
+                  <tr key={a._id} className="border-t border-slate-50">
+                    <td className="py-1.5 text-slate-700">{a.name}</td>
+                    <td className="py-1.5 text-right">
+                      <span
+                        className={`badge ${
+                          a.status === 'Available'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : a.status === 'Under Maintenance'
+                            ? 'bg-amber-50 text-amber-600'
+                            : 'bg-red-50 text-red-600'
+                        }`}
+                      >
+                        {a.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -342,14 +339,18 @@ const SecretaryDashboard = () => {
         <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm">
           <Crown size={17} className="text-amber-600" /> List of Management (By Role)
         </h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm max-h-72 overflow-y-auto pr-1">
-          {detail.management.map((m, i) => (
-            <div key={i} className="flex justify-between border-b border-slate-50 py-1.5">
-              <span className="text-slate-500">{roleLabel(m.role)}</span>
-              <span className="font-medium text-slate-800">{m.name}</span>
-            </div>
-          ))}
-        </div>
+        {detail.management.length === 0 ? (
+          <p className="text-sm text-slate-400">No management roles assigned yet.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm max-h-72 overflow-y-auto pr-1">
+            {detail.management.map((m, i) => (
+              <div key={`${m.role}-${i}`} className="flex justify-between border-b border-slate-50 py-1.5">
+                <span className="text-slate-500">{roleLabel(m.role)}</span>
+                <span className="font-medium text-slate-800">{m.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Layout>
   );

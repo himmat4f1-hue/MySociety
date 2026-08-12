@@ -36,17 +36,25 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
   };
 
-  // Progressive login: call with { email, password } first. The response is
-  // EITHER { step: 'society'|'role'|'flat', options: [...] } - meaning the
-  // person needs to pick something before we can continue - OR a full session
-  // object (has a `token`), meaning login is complete. Re-call this same
-  // function again with the accumulated selections (societyId/role/flatId)
-  // until you get a session back.
-  const login = async ({ email, password, societyId, role, flatId }) => {
-    const res = await api.post('/auth/login', { email, password, societyId, role, flatId });
+  // Login: call with { email, password } first.
+  //  - If the account has exactly one society/role/flat ("account"), the
+  //    response is a full session object (has a `token`) - login is done.
+  //  - If it has more than one, the response is { step: 'select', options }
+  //    listing every account up front. Call login again with
+  //    { email, password, membershipId } using the chosen option's id.
+  const login = async ({ email, password, membershipId }) => {
+    const res = await api.post('/auth/login', { email, password, membershipId });
     if (res.data.token) {
       persistSession(res.data);
     }
+    return res.data;
+  };
+
+  // Switch the current session to a different account the same person also
+  // has, without re-entering a password (used by the account switcher).
+  const switchAccount = async (membershipId) => {
+    const res = await api.post('/auth/switch', { membershipId });
+    persistSession(res.data);
     return res.data;
   };
 
@@ -69,7 +77,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, registerSociety, guestLogin, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, switchAccount, registerSociety, guestLogin, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
