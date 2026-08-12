@@ -6,6 +6,7 @@ import Home from './pages/public/Home';
 import ContactUs from './pages/public/ContactUs';
 import PlansOffers from './pages/public/PlansOffers';
 import Login from './pages/Login';
+import SeedDatabase from './pages/SeedDatabase';
 
 import Dashboard from './pages/Dashboard';
 import MyDues from './pages/MyDues';
@@ -51,6 +52,7 @@ function App() {
       <Route path="/contact" element={<ContactUs />} />
       <Route path="/plans" element={<PlansOffers />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/seed-database" element={<SeedDatabase />} />
 
       {/* Protected app (multi-tenant, under /app) */}
       <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
