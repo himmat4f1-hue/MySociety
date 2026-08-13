@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, LogOut, ChevronDown, Building2, Plus, Check, Loader2 } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Building2, Plus, Check, Loader2, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
@@ -29,7 +29,7 @@ const groupBySociety = (list) => {
   return [...bySociety.values()];
 };
 
-const Topbar = ({ title, subtitle, extra }) => {
+const Topbar = ({ title, subtitle, extra, onMenuClick }) => {
   const { user, logout, switchAccount } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,10 +66,15 @@ const Topbar = ({ title, subtitle, extra }) => {
   const grouped = memberships ? groupBySociety(memberships) : [];
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">{title}</h1>
-        {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+    <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <button onClick={onMenuClick} className="lg:hidden p-1.5 -ml-1 rounded-lg hover:bg-slate-100 shrink-0">
+          <Menu size={22} className="text-slate-600" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{title}</h1>
+          {subtitle && <p className="text-sm text-slate-500 truncate">{subtitle}</p>}
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

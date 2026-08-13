@@ -225,7 +225,7 @@ const Login = () => {
                   <strong>{groupedAccounts.length}</strong> {groupedAccounts.length === 1 ? 'society' : 'societies'}. Choose which one to open:
                 </p>
 
-                <div className="space-y-4 mb-2 max-h-96 overflow-y-auto pr-1">
+                <div className="space-y-4 mb-2">
                   {groupedAccounts.map((group) => (
                     <div key={group.societyId}>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">

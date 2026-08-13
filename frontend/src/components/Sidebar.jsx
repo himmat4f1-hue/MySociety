@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Building, LifeBuoy } from 'lucide-react';
+import { Building, LifeBuoy, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { NAV_ITEMS } from '../config/navConfig';
 
@@ -16,46 +16,65 @@ const roleColors = {
   housekeeping: 'bg-orange-800',
 };
 
-const Sidebar = () => {
+// On mobile this renders as an off-canvas drawer (slides in/out, with a
+// backdrop) controlled by `open`/`onClose`. On desktop (lg+) it's always
+// visible inline, same as before - `open`/`onClose` are simply unused there.
+const Sidebar = ({ open, onClose }) => {
   const { user } = useAuth();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user?.role));
   const themeClass = roleColors[user?.role] || 'bg-slate-900';
 
   return (
-    <aside className={`${themeClass} text-white w-64 min-h-screen flex flex-col shrink-0`}>
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-white/10">
-        <Building size={26} />
-        <div>
-          <p className="font-bold leading-tight">MySociety</p>
-          <p className="text-xs text-white/60 leading-tight">Greenfield Residency</p>
+    <>
+      {/* Backdrop - mobile only, shown while the drawer is open */}
+      {open && <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={onClose} />}
+
+      <aside
+        className={`${themeClass} text-white w-64 shrink-0 flex flex-col
+          fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out
+          ${open ? 'translate-x-0' : '-translate-x-full'}
+          lg:static lg:translate-x-0 lg:min-h-screen`}
+      >
+        <div className="flex items-center justify-between gap-2 px-5 py-5 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <Building size={26} />
+            <div>
+              <p className="font-bold leading-tight">MySociety</p>
+              <p className="text-xs text-white/60 leading-tight">{user?.society?.name || 'Society'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="lg:hidden p-1 rounded hover:bg-white/10">
+            <X size={20} />
+          </button>
         </div>
-      </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-        {items.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/app'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                isActive ? 'bg-white/15 font-semibold' : 'text-white/80 hover:bg-white/10'
-              }`
-            }
-          >
-            <item.icon size={18} />
-            {item.name}
-          </NavLink>
-        ))}
-      </nav>
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+          {items.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/app'}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  isActive ? 'bg-white/15 font-semibold' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <item.icon size={18} />
+              {item.name}
+            </NavLink>
+          ))}
+        </nav>
 
-      <div className="px-2 py-4 border-t border-white/10">
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/80 hover:bg-white/10 w-full">
-          <LifeBuoy size={18} />
-          Help & Support
-        </button>
-      </div>
-    </aside>
+        <div className="px-2 py-4 border-t border-white/10">
+          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/80 hover:bg-white/10 w-full">
+            <LifeBuoy size={18} />
+            Help & Support
+          </button>
+        </div>
+      </aside>
+    </>
   );
 };
 
