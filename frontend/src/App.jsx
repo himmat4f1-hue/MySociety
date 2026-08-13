@@ -10,6 +10,7 @@ import SeedDatabase from './pages/SeedDatabase';
 
 import Dashboard from './pages/Dashboard';
 import MyDues from './pages/MyDues';
+import ListPropertyForSale from './pages/ListPropertyForSale';
 import Residents from './pages/Residents';
 import Units from './pages/Units';
 import Finance from './pages/Finance';
@@ -57,6 +58,7 @@ function App() {
       {/* Protected app (multi-tenant, under /app) */}
       <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/app/my-dues" element={<ProtectedRoute roles={['resident', 'tenant']}><MyDues /></ProtectedRoute>} />
+      <Route path="/app/list-property" element={<ProtectedRoute roles={['resident', 'tenant']}><ListPropertyForSale /></ProtectedRoute>} />
       <Route path="/app/residents" element={<ProtectedRoute roles={['security', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Residents /></ProtectedRoute>} />
       <Route path="/app/units" element={<ProtectedRoute roles={['secretary', 'chairman']}><Units /></ProtectedRoute>} />
       <Route path="/app/finance" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Finance /></ProtectedRoute>} />

@@ -163,15 +163,16 @@ const runSeed = async () => {
   await Building.bulkCreate(towers.map((t) => ({ society: sid, name: t })));
 
   await Unit.update({ owner: rahul.id, resident: rahul.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'A-101' } });
-  await Unit.update({ owner: priya.id, resident: priya.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'A-102' } });
+  await Unit.update({ owner: priya.id, resident: priya.id, status: 'Occupied', forSale: true, askingPrice: 8500000 }, { where: { society: sid, flatNo: 'A-102' } });
   await Unit.update({ resident: amit.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'B-201' } });
-  await Unit.update({ owner: neha.id, resident: neha.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'B-202' } });
+  await Unit.update({ owner: neha.id, resident: neha.id, status: 'Occupied', forSale: true, askingPrice: 7200000 }, { where: { society: sid, flatNo: 'B-202' } });
   await Unit.update({ resident: vikram.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'C-301' } });
   await Unit.update({ resident: meera.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'D-401' } });
-  // Rahul (A-101 owner) also owns D-402, AND also serves as Secretary in this same
-  // society - this is the exact multi-role, multi-flat scenario the login flow
-  // (Society -> Role -> Flat) is designed for. Log in as rahul@mysociety.com to see it.
-  await Unit.update({ owner: rahul.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'D-402' } });
+  // Rahul (A-101 owner) also owns AND lives at D-402 as a second home, AND
+  // also serves as Secretary in this same society - this is the exact
+  // multi-role, multi-flat scenario the login flow is designed for. Log in
+  // as rahul@mysociety.com to see it.
+  await Unit.update({ owner: rahul.id, resident: rahul.id, status: 'Occupied' }, { where: { society: sid, flatNo: 'D-402' } });
   await Membership.create({ user: rahul.id, society: sid, role: 'resident', flatNo: 'D-402', tower: 'Tower D', flatId: 'D-402' });
   await Membership.create({ user: rahul.id, society: sid, role: 'secretary' });
 
@@ -288,9 +289,14 @@ const runSeed = async () => {
     { society: sid, kind: 'Investment', name: 'Fixed Deposit - HDFC', amount: 250000, maturityDate: new Date('2024-12-15') },
     { society: sid, kind: 'Investment', name: 'Fixed Deposit - ICICI', amount: 150000, maturityDate: new Date('2024-08-10') },
     { society: sid, kind: 'Investment', name: 'Mutual Fund - SBI', amount: 100000 },
+    { society: sid, kind: 'Asset', name: 'Land Value', amount: 3200000 },
+    { society: sid, kind: 'Asset', name: 'Building Value', amount: 12750000 },
+    { society: sid, kind: 'Asset', name: 'Other Assets (Equipment, Furniture)', amount: 215000 },
   ]);
 
   await Fund.bulkCreate([
+    { society: sid, type: 'Required', title: 'Corpus Fund', targetAmount: 1500000, collectedAmount: 1500000, dueDate: new Date('2024-01-01') },
+    { society: sid, type: 'Required', title: 'Sinking Fund', targetAmount: 1500000, collectedAmount: 1240000, dueDate: new Date('2024-12-31') },
     { society: sid, type: 'Required', title: 'Lift Modernization Project', targetAmount: 1200000, collectedAmount: 600000, dueDate: new Date('2024-06-30') },
     { society: sid, type: 'Required', title: 'Painting Work - Phase 2', targetAmount: 650000, collectedAmount: 200000, dueDate: new Date('2024-07-15') },
     { society: sid, type: 'Celebration', title: 'Diwali Celebration 2024', collectedAmount: 150000, expenseAmount: 120000 },
@@ -351,6 +357,17 @@ const runSeed = async () => {
   await FamilyMember.bulkCreate([
     { society: sid, flatId: 'A-101', firstName: 'Anjali', lastName: 'Sharma', gender: 'Female', mobileNumber: '9876543299' },
     { society: sid, flatId: 'A-101', firstName: 'Arjun', lastName: 'Sharma', gender: 'Male', birthDate: new Date('2015-04-12') },
+  ]);
+
+  // Tenant-flat families too - "No. of Residents" on the dashboard counts
+  // every person living in the society (owner or tenant families alike), so
+  // tenant flats need Family Data entries just like owner flats do.
+  await FamilyMember.bulkCreate([
+    { society: sid, flatId: 'B-201', firstName: 'Amit', lastName: 'Verma', gender: 'Male', mobileNumber: '9876543212', isAutoAddedOwner: true },
+    { society: sid, flatId: 'C-301', firstName: 'Vikram', lastName: 'Joshi', gender: 'Male', mobileNumber: '9876543214', isAutoAddedOwner: true },
+    { society: sid, flatId: 'C-301', firstName: 'Sneha', lastName: 'Joshi', gender: 'Female', mobileNumber: '9876543298' },
+    { society: sid, flatId: 'D-401', firstName: 'Meera', lastName: 'Nair', gender: 'Female', mobileNumber: '9876543217', isAutoAddedOwner: true },
+    { society: sid, flatId: 'D-402', firstName: 'Rahul', lastName: 'Sharma', gender: 'Male', mobileNumber: '9876543210', isAutoAddedOwner: true },
   ]);
 
   console.log('Creating vehicles...');

@@ -36,6 +36,7 @@ import {
   ClipboardCheck,
   UserCheck2,
   ListChecks,
+  Tag,
 } from 'lucide-react';
 
 export const ALL_ROLES = [
@@ -55,6 +56,7 @@ export const NAV_ITEMS = [
 
   // Owner/tenant self-service
   { name: 'My Dues', path: '/app/my-dues', icon: Receipt, roles: ['resident', 'tenant'] },
+  { name: 'List Property for Sale', path: '/app/list-property', icon: Tag, roles: ['resident', 'tenant'] },
   { name: 'Pets', path: '/app/pets', icon: PawPrint, roles: ALL_ROLES.filter((r) => !['housekeeping', 'accountant', 'treasurer'].includes(r)) },
 
   { name: 'Personal Data', path: '/app/flat-owners', icon: CreditCard, roles: ['secretary', 'chairman', 'resident', 'tenant'] },

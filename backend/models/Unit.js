@@ -47,6 +47,16 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.UUID,
     allowNull: true,
   },
+  // Set by the flat's own resident/tenant via the "List Property for Sale"
+  // menu - lets Secretary see how many units are currently listed.
+  forSale: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  askingPrice: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   indexes: [

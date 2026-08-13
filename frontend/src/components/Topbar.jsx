@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Search, ChevronDown, Building2, Plus, Check, Loader2 } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Building2, Plus, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
@@ -73,14 +73,6 @@ const Topbar = ({ title, subtitle }) => {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2 w-64">
-          <Search size={16} className="text-slate-400" />
-          <input
-            className="bg-transparent text-sm outline-none w-full placeholder:text-slate-400"
-            placeholder="Search..."
-          />
-        </div>
-
         <button className="relative p-2 rounded-lg hover:bg-slate-100">
           <Bell size={20} className="text-slate-600" />
           <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">

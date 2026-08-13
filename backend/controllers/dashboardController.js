@@ -18,6 +18,7 @@ const HomeService = require('../models/HomeService');
 const Fund = require('../models/Fund');
 const Investment = require('../models/Investment');
 const AgendaItem = require('../models/AgendaItem');
+const FamilyMember = require('../models/FamilyMember');
 const User = require('../models/User');
 
 // @desc  Get overview stats for the main dashboard (role-aware), scoped to the
@@ -125,7 +126,7 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
   };
 
   const [
-    unitsByStatus,
+    allUnits,
     petsByType,
     vehiclesByType,
     homeServicesByType,
@@ -133,18 +134,19 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     resolvedComplaintsByPriority,
     upcomingMeetings,
     amenities,
-    funds,
+    allFunds,
     investments,
     management,
     leasesExpiringSoon,
     pendingLeaseCount,
     financeRows,
-    totalResidents,
+    residentHeadcount,
     visitorsOnDate,
     securityStaffCount,
     housekeepingStaffCount,
+    propertiesInSale,
   ] = await Promise.all([
-    countBy(Unit, 'status'),
+    Unit.findAll({ where: { society: sid }, attributes: ['id', 'status', 'owner', 'resident'], raw: true }),
     countBy(Pet, 'type'),
     countBy(Vehicle, 'vehicleType'),
     countBy(HomeService, 'type'),
@@ -158,11 +160,27 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     require('../models/Lease').count({ where: { society: sid, status: 'Expiring Soon' } }),
     require('../models/Lease').count({ where: { society: sid } }),
     Transaction.findAll({ where: { society: sid, date: { [Op.lte]: endOfDay } } }),
-    Membership.count({ where: { society: sid, role: { [Op.in]: ['resident', 'tenant'] }, status: 'active' } }),
+    FamilyMember.count({ where: { society: sid } }), // full headcount - owner/tenant families both included
     Visitor.count({ where: { society: sid, createdAt: { [Op.gte]: startOfDay, [Op.lte]: endOfDay } } }),
     Membership.count({ where: { society: sid, role: 'security', status: 'active' } }),
     Membership.count({ where: { society: sid, role: 'housekeeping', status: 'active' } }),
+    Unit.count({ where: { society: sid, forSale: true } }),
   ]);
+
+  // Owner-occupied vs Tenant-occupied vs Vacant, derived from each Unit's
+  // owner/resident fields (NOT the Membership role, which doesn't reliably
+  // distinguish this) - see backend/routes/unitRoutes.js for how a flat's
+  // owner/resident get set.
+  const unitsByOccupancy = { Owner: 0, Tenant: 0, Vacant: 0 };
+  allUnits.forEach((u) => {
+    if (u.status === 'Vacant' || (!u.owner && !u.resident)) {
+      unitsByOccupancy.Vacant += 1;
+    } else if (u.owner && u.resident && u.owner === u.resident) {
+      unitsByOccupancy.Owner += 1;
+    } else {
+      unitsByOccupancy.Tenant += 1;
+    }
+  });
 
   // Attach an agenda-item count to each upcoming meeting (for the "No. of
   // Agendas" column on the dashboard).
@@ -183,19 +201,31 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
   const nameById = new Map(managementUsers.map((u) => [u.id, u.name]));
   const managementList = management.map((m) => ({ role: m.role, name: nameById.get(m.user) || '—' }));
 
-  const totalAssets = investments.filter((i) => i.kind === 'Asset').reduce((s, i) => s + Number(i.amount || 0), 0);
-  const totalInvestments = investments.filter((i) => i.kind === 'Investment').reduce((s, i) => s + Number(i.amount || 0), 0);
-  const totalFund = funds.reduce((s, f) => s + Number(f.collectedAmount || 0), 0);
+  // "Society Fund" (required funds like corpus/maintenance/sinking) vs
+  // "Celebration/Donation" (festival/event collections) are shown as two
+  // separate cards, mirroring how Funds are actually categorized (type field).
+  const requiredFunds = allFunds.filter((f) => f.type === 'Required');
+  const celebrationFunds = allFunds.filter((f) => f.type === 'Celebration');
+  const totalFund = requiredFunds.reduce((s, f) => s + Number(f.collectedAmount || 0), 0);
+  const celebrationCollection = celebrationFunds.reduce((s, f) => s + Number(f.collectedAmount || 0), 0);
+  const celebrationExpense = celebrationFunds.reduce((s, f) => s + Number(f.expenseAmount || 0), 0);
+
+  const assetsList = investments.filter((i) => i.kind === 'Asset');
+  const investmentsList = investments.filter((i) => i.kind === 'Investment');
+  const totalAssets = assetsList.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalInvestments = investmentsList.reduce((s, i) => s + Number(i.amount || 0), 0);
 
   const collection = financeRows.filter((t) => t.type === 'Income').reduce((s, t) => s + Number(t.amount || 0), 0);
   const expense = financeRows.filter((t) => t.type === 'Expense').reduce((s, t) => s + Number(t.amount || 0), 0);
 
   res.json({
     date: startOfDay.toISOString().slice(0, 10),
-    units: unitsByStatus,
-    residents: totalResidents,
+    units: unitsByOccupancy,
+    totalUnits: allUnits.length,
+    residents: residentHeadcount,
     visitorsToday: visitorsOnDate,
     staff: { security: securityStaffCount, housekeeping: housekeepingStaffCount },
+    propertiesInSale,
     pets: { byType: petsByType, total: Object.values(petsByType).reduce((a, b) => a + b, 0) },
     vehicles: { byType: vehiclesByType, total: Object.values(vehiclesByType).reduce((a, b) => a + b, 0) },
     homeServices: { byType: homeServicesByType, total: Object.values(homeServicesByType).reduce((a, b) => a + b, 0) },
@@ -207,8 +237,9 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     },
     meetings: meetingsWithAgendaCount,
     amenities,
-    funds: { list: funds, totalCollected: totalFund },
-    investments: { list: investments, totalAssets, totalInvestments },
+    funds: { list: requiredFunds, totalCollected: totalFund },
+    celebration: { list: celebrationFunds, collection: celebrationCollection, expense: celebrationExpense, balance: celebrationCollection - celebrationExpense },
+    investments: { list: investmentsList, assetsList, totalAssets, totalInvestments },
     management: managementList,
     leases: { expiringSoon: leasesExpiringSoon, total: pendingLeaseCount },
     finance: { collection, expense, balance: collection - expense },
