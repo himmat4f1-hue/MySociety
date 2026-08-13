@@ -182,6 +182,13 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     }
   });
 
+  // Add a computed "available" (capacity - used) to each amenity for the
+  // dashboard's Capacity/Used/Available columns.
+  const amenitiesWithAvailability = amenities.map((a) => {
+    const json = a.toJSON();
+    return { ...json, available: Math.max((json.capacity || 0) - (json.used || 0), 0) };
+  });
+
   // Attach an agenda-item count to each upcoming meeting (for the "No. of
   // Agendas" column on the dashboard).
   const meetingIds = upcomingMeetings.map((m) => m.id);
@@ -236,7 +243,7 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
       resolvedTotal: Object.values(resolvedComplaintsByPriority).reduce((a, b) => a + b, 0),
     },
     meetings: meetingsWithAgendaCount,
-    amenities,
+    amenities: amenitiesWithAvailability,
     funds: { list: requiredFunds, totalCollected: totalFund },
     celebration: { list: celebrationFunds, collection: celebrationCollection, expense: celebrationExpense, balance: celebrationCollection - celebrationExpense },
     investments: { list: investmentsList, assetsList, totalAssets, totalInvestments },

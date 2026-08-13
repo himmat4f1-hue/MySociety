@@ -48,8 +48,13 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('PostgreSQL Connected Successfully');
 
-    // Sync models with database (creates tables if they don't exist)
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    // Sync models with database (creates tables if missing, and - critically -
+    // ALTERs existing tables to add/adjust columns when a model changes).
+    // This app has no separate migration system, so `alter: true` runs in
+    // every environment, not just development; without it, any new field
+    // added to a model (e.g. Unit.forSale) would silently never appear on an
+    // already-deployed database, breaking anything that reads/writes it.
+    await sequelize.sync({ alter: true });
     console.log('Database models synchronized');
   } catch (error) {
     console.error('Unable to connect to the database:', error.message);

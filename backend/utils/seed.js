@@ -225,12 +225,12 @@ const runSeed = async () => {
 
   console.log('Creating amenities...');
   await Amenity.bulkCreate([
-    { society: sid, name: 'Gym', type: 'Fitness', building: 'Tower A', status: 'Available', availability: '6:00 AM - 10:00 PM' },
-    { society: sid, name: 'Swimming Pool', type: 'Recreation', building: 'Tower B', status: 'Available', availability: '7:00 AM - 9:00 PM' },
-    { society: sid, name: 'Club House', type: 'Community', building: 'All Towers', status: 'Available', availability: '8:00 AM - 11:00 PM' },
-    { society: sid, name: 'Tennis Court', type: 'Sports', building: 'Tower C', status: 'Under Maintenance' },
-    { society: sid, name: 'Children Play Area', type: 'Recreation', building: 'Tower A', status: 'Available', availability: '6:00 AM - 9:00 PM' },
-    { society: sid, name: 'Power Backup', type: 'Utility', building: 'All Towers', status: 'Out of Service' },
+    { society: sid, name: 'Gym', type: 'Fitness', building: 'Tower A', status: 'Available', availability: '6:00 AM - 10:00 PM', capacity: 80, used: 65 },
+    { society: sid, name: 'Swimming Pool', type: 'Recreation', building: 'Tower B', status: 'Available', availability: '7:00 AM - 9:00 PM', capacity: 100, used: 80 },
+    { society: sid, name: 'Club House', type: 'Community', building: 'All Towers', status: 'Available', availability: '8:00 AM - 11:00 PM', capacity: 200, used: 150 },
+    { society: sid, name: 'Tennis Court', type: 'Sports', building: 'Tower C', status: 'Under Maintenance', capacity: 20, used: 0 },
+    { society: sid, name: 'Children Play Area', type: 'Recreation', building: 'Tower A', status: 'Available', availability: '6:00 AM - 9:00 PM', capacity: 150, used: 90 },
+    { society: sid, name: 'Power Backup', type: 'Utility', building: 'All Towers', status: 'Out of Service', capacity: 0, used: 0 },
   ]);
 
   console.log('Creating documents...');

@@ -383,13 +383,19 @@ const SecretaryDashboard = () => {
                   <thead>
                     <tr className="text-slate-400 text-left">
                       <th className="font-medium pb-1">Amenity</th>
+                      <th className="font-medium pb-1 text-right">Capacity</th>
+                      <th className="font-medium pb-1 text-right">Used</th>
+                      <th className="font-medium pb-1 text-right">Available</th>
                       <th className="font-medium pb-1 text-right">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.amenities.map((a) => (
                       <tr key={a._id} className="border-t border-slate-50">
-                        <td className="py-1.5 text-slate-700">{a.name}</td>
+                        <td className="py-1.5 text-slate-700 whitespace-nowrap">{a.name}</td>
+                        <td className="py-1.5 text-right text-slate-600">{a.capacity ?? 0}</td>
+                        <td className="py-1.5 text-right text-slate-600">{a.used ?? 0}</td>
+                        <td className="py-1.5 text-right text-slate-600">{a.available ?? 0}</td>
                         <td className="py-1.5 text-right">
                           <span
                             className={`badge ${
