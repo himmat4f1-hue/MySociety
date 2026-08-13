@@ -191,12 +191,12 @@ const runSeed = async () => {
     { society: sid, name: 'Whiskers', type: 'Cat', breed: 'Persian', flatId: 'B-202', vaccinated: true },
   ]);
 
-  console.log('Creating visitors...');
+  console.log('Creating visitors (spread across recent days, so the dashboard date filter has something to show)...');
   await Visitor.bulkCreate([
-    { society: sid, name: 'Sandeep Kumar', mobile: '9876543210', purpose: 'Personal Visit', flatNo: 'A-101', residentName: 'Rahul Sharma', status: 'Inside' },
-    { society: sid, name: 'Priya Mehta', mobile: '9876543211', purpose: 'Courier Delivery', flatNo: 'A-102', residentName: 'Priya Patel', status: 'Checked Out', outTime: new Date() },
-    { society: sid, name: 'Vijay Singh', mobile: '9876543212', purpose: 'Service Person', flatNo: 'B-201', residentName: 'Amit Verma', status: 'Checked Out', outTime: new Date() },
-    { society: sid, name: 'Rohit Sharma', mobile: '9876543213', purpose: 'Personal Visit', flatNo: 'B-202', residentName: 'Neha Singh', status: 'Inside' },
+    { society: sid, name: 'Sandeep Kumar', mobile: '9876543210', purpose: 'Personal Visit', flatNo: 'A-101', residentName: 'Rahul Sharma', status: 'Inside', createdAt: new Date() },
+    { society: sid, name: 'Priya Mehta', mobile: '9876543211', purpose: 'Courier Delivery', flatNo: 'A-102', residentName: 'Priya Patel', status: 'Checked Out', outTime: new Date(), createdAt: new Date() },
+    { society: sid, name: 'Vijay Singh', mobile: '9876543212', purpose: 'Service Person', flatNo: 'B-201', residentName: 'Amit Verma', status: 'Checked Out', outTime: new Date(Date.now() - 2 * 86400000), createdAt: new Date(Date.now() - 2 * 86400000) },
+    { society: sid, name: 'Rohit Sharma', mobile: '9876543213', purpose: 'Personal Visit', flatNo: 'B-202', residentName: 'Neha Singh', status: 'Inside', createdAt: new Date(Date.now() - 5 * 86400000) },
   ]);
 
   console.log('Creating complaints...');
@@ -251,19 +251,20 @@ const runSeed = async () => {
     { society: sid, invoiceNo: 'INV-2024-06-106', flatNo: 'D-402', residentName: 'Rahul Sharma', amount: 4900, dueDate: new Date('2024-06-25'), status: 'Pending' },
   ]);
 
-  console.log('Creating transactions...');
+  console.log('Creating transactions (spread across recent days, so the dashboard date filter has something to show)...');
   await Transaction.bulkCreate([
-    { society: sid, type: 'Income', category: 'Maintenance', description: 'Maintenance Bill - May', amount: 5250, flatNo: 'A-101', status: 'Collected' },
-    { society: sid, type: 'Expense', category: 'Utilities', description: 'Electricity Bill Payment', amount: 18600, flatNo: 'B-201', status: 'Paid' },
-    { society: sid, type: 'Income', category: 'Maintenance', description: 'Water Bill Collection', amount: 12000, flatNo: 'C-301', status: 'Collected' },
-    { society: sid, type: 'Expense', category: 'Others', description: 'Gardening Expense', amount: 4500, status: 'Paid' },
+    { society: sid, type: 'Income', category: 'Maintenance', description: 'Maintenance Bill - May', amount: 5250, flatNo: 'A-101', status: 'Collected', date: new Date() },
+    { society: sid, type: 'Expense', category: 'Utilities', description: 'Electricity Bill Payment', amount: 18600, flatNo: 'B-201', status: 'Paid', date: new Date(Date.now() - 3 * 86400000) },
+    { society: sid, type: 'Income', category: 'Maintenance', description: 'Water Bill Collection', amount: 12000, flatNo: 'C-301', status: 'Collected', date: new Date(Date.now() - 7 * 86400000) },
+    { society: sid, type: 'Expense', category: 'Others', description: 'Gardening Expense', amount: 4500, status: 'Paid', date: new Date(Date.now() - 10 * 86400000) },
   ]);
 
-  console.log('Creating meetings...');
+  console.log('Creating meetings (relative to today, so "Upcoming Meetings" always has something to show)...');
   await Meeting.bulkCreate([
-    { society: sid, title: 'Annual General Meeting', type: 'General', date: new Date('2024-05-25T10:00:00'), location: 'Conference Room', agenda: 'Financial approval and by-law amendment discussion', createdBy: secretary.id },
-    { society: sid, title: 'Executive Committee Meeting', type: 'Committee', date: new Date('2024-05-20T17:00:00'), location: 'Committee Room', createdBy: secretary.id },
-    { society: sid, title: 'Building Maintenance Meeting', type: 'Internal', date: new Date('2024-05-30T18:00:00'), location: 'Tower A Meeting Room', createdBy: secretary.id },
+    { society: sid, title: 'Annual General Meeting', type: 'General', date: new Date(Date.now() + 5 * 86400000), location: 'Conference Room', agenda: 'Financial approval and by-law amendment discussion', createdBy: secretary.id },
+    { society: sid, title: 'Executive Committee Meeting', type: 'Committee', date: new Date(Date.now() + 10 * 86400000), location: 'Committee Room', createdBy: secretary.id },
+    { society: sid, title: 'Building Maintenance Meeting', type: 'Internal', date: new Date(Date.now() + 20 * 86400000), location: 'Tower A Meeting Room', createdBy: secretary.id },
+    { society: sid, title: 'Diwali Celebration Planning', type: 'Community', date: new Date(Date.now() + 35 * 86400000), location: 'Community Hall', createdBy: secretary.id },
   ]);
 
   console.log('Creating polls...');

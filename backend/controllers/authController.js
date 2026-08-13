@@ -188,6 +188,101 @@ const switchAccount = asyncHandler(async (req, res) => {
   res.json(session);
 });
 
+// Fixed demo OTP - no real SMS/telecom provider is configured in this build,
+// so every request gets the same code and it's returned directly in the
+// response instead of being texted. Swap this out for a real SMS provider
+// (and store a per-request, expiring code) before using this in production.
+const DEMO_OTP = '123456';
+
+// Given a User row, returns EITHER { session } if they have exactly one
+// active society/role/flat ("account"), or { options } listing every account
+// they have (grouped-ready) if they have more than one. Shared by the OTP
+// login flow below.
+const resolveAccountsForUser = async (user) => {
+  const memberships = await Membership.findAll({ where: { user: user.id, status: 'active' } });
+  if (memberships.length === 0) {
+    return { notFound: true };
+  }
+  if (memberships.length === 1) {
+    return { session: await issueSessionResponse(user, memberships[0]) };
+  }
+
+  const societyIds = [...new Set(memberships.map((m) => m.society))];
+  const societies = await Society.findAll({ where: { id: societyIds } });
+  const societyById = new Map(societies.map((s) => [s.id, s]));
+
+  const options = memberships
+    .map((m) => ({
+      membershipId: m.id,
+      societyId: m.society,
+      societyName: societyById.get(m.society)?.name || 'Unknown Society',
+      role: m.role,
+      flatNo: m.flatNo || null,
+      tower: m.tower || null,
+      flatId: m.flatId || null,
+    }))
+    .sort((a, b) => a.societyName.localeCompare(b.societyName));
+
+  return { options };
+};
+
+// @desc  Step 1 of mobile login: send (in this demo, "send") an OTP to the
+// given phone number. Only succeeds if a User account already exists with
+// that phone number.
+// @route POST /api/auth/request-otp
+const requestOtp = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ message: 'Phone number is required.' });
+  }
+
+  const user = await User.findOne({ where: { phone: String(phone).trim() } });
+  if (!user) {
+    return res.status(404).json({ message: 'No account found for this mobile number.' });
+  }
+
+  // NOTE: demo mode - no SMS provider wired up, so the OTP is returned
+  // directly in the response instead of being texted.
+  res.json({ message: 'OTP sent.', demoOtp: DEMO_OTP });
+});
+
+// @desc  Step 2 of mobile login: verify the OTP, then either log straight in
+// (single account) or return the full list of accounts to choose from
+// (multiple accounts). Once an account is chosen, call this same endpoint
+// again with { phone, otp, membershipId } to complete login.
+// @route POST /api/auth/verify-otp
+const verifyOtp = asyncHandler(async (req, res) => {
+  const { phone, otp, membershipId } = req.body;
+  if (!phone || !otp) {
+    return res.status(400).json({ message: 'Phone number and OTP are required.' });
+  }
+  if (otp !== DEMO_OTP) {
+    return res.status(400).json({ message: 'Incorrect OTP. Please try again.' });
+  }
+
+  const user = await User.findOne({ where: { phone: String(phone).trim() } });
+  if (!user) {
+    return res.status(404).json({ message: 'No account found for this mobile number.' });
+  }
+
+  if (membershipId) {
+    const membership = await Membership.findOne({ where: { id: membershipId, user: user.id, status: 'active' } });
+    if (!membership) {
+      return res.status(400).json({ message: 'That account selection is not valid.' });
+    }
+    return res.json(await issueSessionResponse(user, membership));
+  }
+
+  const result = await resolveAccountsForUser(user);
+  if (result.notFound) {
+    return res.status(404).json({ message: 'This account is not linked to any society yet. Please register a society from the Plans & Offers page.' });
+  }
+  if (result.session) {
+    return res.json(result.session);
+  }
+  res.json({ step: 'select', options: result.options });
+});
+
 // @desc  Instantly creates a fresh, isolated guest sandbox society (pre-loaded with
 // sample data) and logs the visitor straight in as its Chairman. Auto-expires after
 // a few days (see utils/cleanupGuestSandboxes.js).
@@ -301,4 +396,4 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: 'Password reset successful. You can now log in with your new password.' });
 });
 
-module.exports = { registerSociety, loginUser, switchAccount, guestLogin, getMe, getMySocieties, forgotPassword, resetPassword };
+module.exports = { registerSociety, loginUser, switchAccount, requestOtp, verifyOtp, guestLogin, getMe, getMySocieties, forgotPassword, resetPassword };

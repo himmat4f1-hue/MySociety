@@ -17,6 +17,7 @@ const Vehicle = require('../models/Vehicle');
 const HomeService = require('../models/HomeService');
 const Fund = require('../models/Fund');
 const Investment = require('../models/Investment');
+const AgendaItem = require('../models/AgendaItem');
 const User = require('../models/User');
 
 // @desc  Get overview stats for the main dashboard (role-aware), scoped to the
@@ -90,9 +91,25 @@ const getOverview = asyncHandler(async (req, res) => {
 // @desc  Rich, secretary-focused overview: breakdowns by type/priority plus
 // the counts from getOverview above, all scoped to the caller's society.
 // Powers the detailed Secretary Dashboard screen.
-// @route GET /api/dashboard/secretary
+//
+// Accepts an optional ?date=YYYY-MM-DD query param ("Filter: By Date" on the
+// dashboard). Only the cards that are meaningfully date-scoped respond to it:
+//   - Visitors: count of visitors checked in on that specific day
+//   - Upcoming Meetings: meetings on/after that date (instead of "today")
+//   - Finance: collection/expense totals up to (and including) that date
+// Everything else (unit occupancy, pets/vehicles/home-services breakdowns,
+// complaints, staff counts, funds/assets, amenities, management list) is a
+// structural snapshot of the society and is NOT date-scoped.
+// @route GET /api/dashboard/secretary?date=YYYY-MM-DD
 const getSecretaryOverview = asyncHandler(async (req, res) => {
   const sid = req.societyId;
+
+  const requestedDate = req.query.date ? new Date(req.query.date) : new Date();
+  const validDate = Number.isNaN(requestedDate.getTime()) ? new Date() : requestedDate;
+  const startOfDay = new Date(validDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(validDate);
+  endOfDay.setHours(23, 59, 59, 999);
 
   const countBy = async (Model, field, extraWhere = {}) => {
     const rows = await Model.findAll({
@@ -121,9 +138,9 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     management,
     leasesExpiringSoon,
     pendingLeaseCount,
-    finance,
+    financeRows,
     totalResidents,
-    totalVisitorsToday,
+    visitorsOnDate,
     securityStaffCount,
     housekeepingStaffCount,
   ] = await Promise.all([
@@ -133,35 +150,51 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     countBy(HomeService, 'type'),
     countBy(Complaint, 'priority', { status: { [Op.in]: ['Open', 'In Process'] } }),
     countBy(Complaint, 'priority', { status: 'Resolved' }),
-    Meeting.findAll({ where: { society: sid, date: { [Op.gte]: new Date() } }, order: [['date', 'ASC']], limit: 5 }),
+    Meeting.findAll({ where: { society: sid, date: { [Op.gte]: startOfDay } }, order: [['date', 'ASC']], limit: 8 }),
     Amenity.findAll({ where: { society: sid } }),
     Fund.findAll({ where: { society: sid } }),
     Investment.findAll({ where: { society: sid } }),
     Membership.findAll({ where: { society: sid, role: { [Op.notIn]: ['resident', 'tenant'] } } }),
     require('../models/Lease').count({ where: { society: sid, status: 'Expiring Soon' } }),
     require('../models/Lease').count({ where: { society: sid } }),
-    Transaction.findAll({ where: { society: sid } }),
+    Transaction.findAll({ where: { society: sid, date: { [Op.lte]: endOfDay } } }),
     Membership.count({ where: { society: sid, role: { [Op.in]: ['resident', 'tenant'] }, status: 'active' } }),
-    Visitor.count({ where: { society: sid, createdAt: { [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
+    Visitor.count({ where: { society: sid, createdAt: { [Op.gte]: startOfDay, [Op.lte]: endOfDay } } }),
     Membership.count({ where: { society: sid, role: 'security', status: 'active' } }),
     Membership.count({ where: { society: sid, role: 'housekeeping', status: 'active' } }),
   ]);
+
+  // Attach an agenda-item count to each upcoming meeting (for the "No. of
+  // Agendas" column on the dashboard).
+  const meetingIds = upcomingMeetings.map((m) => m.id);
+  const agendaCounts = meetingIds.length
+    ? await AgendaItem.findAll({
+        where: { meeting: { [Op.in]: meetingIds } },
+        attributes: ['meeting', [AgendaItem.sequelize.fn('COUNT', AgendaItem.sequelize.col('id')), 'count']],
+        group: ['meeting'],
+        raw: true,
+      })
+    : [];
+  const agendaCountByMeeting = new Map(agendaCounts.map((r) => [r.meeting, parseInt(r.count, 10)]));
+  const meetingsWithAgendaCount = upcomingMeetings.map((m) => ({ ...m.toJSON(), agendaCount: agendaCountByMeeting.get(m.id) || 0 }));
 
   const managementUserIds = [...new Set(management.map((m) => m.user))];
   const managementUsers = await User.findAll({ where: { id: { [Op.in]: managementUserIds } }, attributes: ['id', 'name'] });
   const nameById = new Map(managementUsers.map((u) => [u.id, u.name]));
   const managementList = management.map((m) => ({ role: m.role, name: nameById.get(m.user) || '—' }));
 
-  const totalAssets = investments.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalAssets = investments.filter((i) => i.kind === 'Asset').reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalInvestments = investments.filter((i) => i.kind === 'Investment').reduce((s, i) => s + Number(i.amount || 0), 0);
   const totalFund = funds.reduce((s, f) => s + Number(f.collectedAmount || 0), 0);
 
-  const collection = finance.filter((t) => t.type === 'Income').reduce((s, t) => s + Number(t.amount || 0), 0);
-  const expense = finance.filter((t) => t.type === 'Expense').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const collection = financeRows.filter((t) => t.type === 'Income').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const expense = financeRows.filter((t) => t.type === 'Expense').reduce((s, t) => s + Number(t.amount || 0), 0);
 
   res.json({
+    date: startOfDay.toISOString().slice(0, 10),
     units: unitsByStatus,
     residents: totalResidents,
-    visitorsToday: totalVisitorsToday,
+    visitorsToday: visitorsOnDate,
     staff: { security: securityStaffCount, housekeeping: housekeepingStaffCount },
     pets: { byType: petsByType, total: Object.values(petsByType).reduce((a, b) => a + b, 0) },
     vehicles: { byType: vehiclesByType, total: Object.values(vehiclesByType).reduce((a, b) => a + b, 0) },
@@ -172,10 +205,10 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
       pendingTotal: Object.values(pendingComplaintsByPriority).reduce((a, b) => a + b, 0),
       resolvedTotal: Object.values(resolvedComplaintsByPriority).reduce((a, b) => a + b, 0),
     },
-    meetings: upcomingMeetings,
+    meetings: meetingsWithAgendaCount,
     amenities,
     funds: { list: funds, totalCollected: totalFund },
-    investments: { list: investments, totalAssets },
+    investments: { list: investments, totalAssets, totalInvestments },
     management: managementList,
     leases: { expiringSoon: leasesExpiringSoon, total: pendingLeaseCount },
     finance: { collection, expense, balance: collection - expense },
