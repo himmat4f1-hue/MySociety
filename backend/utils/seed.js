@@ -262,10 +262,10 @@ const runSeed = async () => {
 
   console.log('Creating meetings (relative to today, so "Upcoming Meetings" always has something to show)...');
   await Meeting.bulkCreate([
-    { society: sid, title: 'Annual General Meeting', type: 'General', date: new Date(Date.now() + 5 * 86400000), location: 'Conference Room', agenda: 'Financial approval and by-law amendment discussion', createdBy: secretary.id },
-    { society: sid, title: 'Executive Committee Meeting', type: 'Committee', date: new Date(Date.now() + 10 * 86400000), location: 'Committee Room', createdBy: secretary.id },
-    { society: sid, title: 'Building Maintenance Meeting', type: 'Internal', date: new Date(Date.now() + 20 * 86400000), location: 'Tower A Meeting Room', createdBy: secretary.id },
-    { society: sid, title: 'Diwali Celebration Planning', type: 'Community', date: new Date(Date.now() + 35 * 86400000), location: 'Community Hall', createdBy: secretary.id },
+    { society: sid, title: 'Annual General Meeting', type: 'General', date: new Date(Date.now() + 5 * 86400000), time: '07:00 PM', location: 'Conference Room', agenda: 'Financial approval and by-law amendment discussion', createdBy: secretary.id },
+    { society: sid, title: 'Executive Committee Meeting', type: 'Committee', date: new Date(Date.now() + 10 * 86400000), time: '06:30 PM', location: 'Committee Room', createdBy: secretary.id },
+    { society: sid, title: 'Building Maintenance Meeting', type: 'Internal', date: new Date(Date.now() + 20 * 86400000), time: '05:00 PM', location: 'Tower A Meeting Room', createdBy: secretary.id },
+    { society: sid, title: 'Diwali Celebration Planning', type: 'Community', date: new Date(Date.now() + 35 * 86400000), time: '07:00 PM', location: 'Community Hall', createdBy: secretary.id },
   ]);
 
   console.log('Creating polls...');
@@ -333,6 +333,7 @@ const runSeed = async () => {
     { society: sid, flatNo: 'B-201', tower: 'Tower B', tenantName: 'Amit Verma', ownerName: 'Owner (B-201)', leaseStart: new Date('2024-01-01'), leaseEnd: new Date('2024-12-31'), monthlyRent: 25000, securityDeposit: 75000, status: 'Active' },
     { society: sid, flatNo: 'C-301', tower: 'Tower C', tenantName: 'Vikram Joshi', ownerName: 'Owner (C-301)', leaseStart: new Date('2023-09-01'), leaseEnd: new Date('2024-08-31'), monthlyRent: 22000, securityDeposit: 66000, status: 'Expiring Soon' },
     { society: sid, flatNo: 'D-401', tower: 'Tower D', tenantName: 'Meera Nair', ownerName: 'Owner (D-401)', leaseStart: new Date('2024-03-01'), leaseEnd: new Date('2025-02-28'), monthlyRent: 20000, securityDeposit: 60000, status: 'Active' },
+    { society: sid, flatNo: 'A-205', tower: 'Tower A', tenantName: 'New Tenant (awaiting approval)', ownerName: 'Owner (A-205)', leaseStart: new Date(Date.now() + 10 * 86400000), leaseEnd: new Date(Date.now() + 375 * 86400000), monthlyRent: 24000, securityDeposit: 72000, status: 'Pending' },
   ]);
 
   console.log('Creating Personal Data (Flat Owners) + auto-added Family Data...');

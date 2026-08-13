@@ -29,7 +29,7 @@ const groupBySociety = (list) => {
   return [...bySociety.values()];
 };
 
-const Topbar = ({ title, subtitle }) => {
+const Topbar = ({ title, subtitle, extra }) => {
   const { user, logout, switchAccount } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,6 +73,8 @@ const Topbar = ({ title, subtitle }) => {
       </div>
 
       <div className="flex items-center gap-4">
+        {extra}
+
         <button className="relative p-2 rounded-lg hover:bg-slate-100">
           <Bell size={20} className="text-slate-600" />
           <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">

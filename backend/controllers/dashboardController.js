@@ -138,7 +138,8 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     investments,
     management,
     leasesExpiringSoon,
-    pendingLeaseCount,
+    leasesPending,
+    totalLeaseCount,
     financeRows,
     residentHeadcount,
     visitorsOnDate,
@@ -158,6 +159,7 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     Investment.findAll({ where: { society: sid } }),
     Membership.findAll({ where: { society: sid, role: { [Op.notIn]: ['resident', 'tenant'] } } }),
     require('../models/Lease').count({ where: { society: sid, status: 'Expiring Soon' } }),
+    require('../models/Lease').count({ where: { society: sid, status: 'Pending' } }),
     require('../models/Lease').count({ where: { society: sid } }),
     Transaction.findAll({ where: { society: sid, date: { [Op.lte]: endOfDay } } }),
     FamilyMember.count({ where: { society: sid } }), // full headcount - owner/tenant families both included
@@ -248,7 +250,7 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
     celebration: { list: celebrationFunds, collection: celebrationCollection, expense: celebrationExpense, balance: celebrationCollection - celebrationExpense },
     investments: { list: investmentsList, assetsList, totalAssets, totalInvestments },
     management: managementList,
-    leases: { expiringSoon: leasesExpiringSoon, total: pendingLeaseCount },
+    leases: { expiringSoon: leasesExpiringSoon, pending: leasesPending, total: totalLeaseCount },
     finance: { collection, expense, balance: collection - expense },
   });
 });

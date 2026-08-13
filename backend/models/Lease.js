@@ -50,7 +50,7 @@ const Lease = sequelize.define('Lease', {
     defaultValue: 0,
   },
   status: {
-    type: DataTypes.ENUM('Active', 'Expiring Soon', 'Expired', 'Renewed'),
+    type: DataTypes.ENUM('Active', 'Expiring Soon', 'Expired', 'Renewed', 'Pending'),
     defaultValue: 'Active',
   },
 }, {
