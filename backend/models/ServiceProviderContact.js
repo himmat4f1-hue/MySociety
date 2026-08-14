@@ -11,6 +11,11 @@ const ServiceProviderContact = sequelize.define('ServiceProviderContact', {
   phone: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: true },
   notes: { type: DataTypes.TEXT, allowNull: true },
+  // "Vendor / Contractor Management" (#43)
+  contractStart: { type: DataTypes.DATE, allowNull: true },
+  contractEnd: { type: DataTypes.DATE, allowNull: true },
+  slaDetails: { type: DataTypes.TEXT, allowNull: true },
+  rating: { type: DataTypes.FLOAT, allowNull: true }, // 1-5
 }, { timestamps: true });
 
 module.exports = withMongoIdAlias(ServiceProviderContact);

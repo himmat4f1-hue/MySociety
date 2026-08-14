@@ -1,5 +1,21 @@
 const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
+const { logActivity } = require('../utils/auditLog');
+
+// Strips empty-string values for ENUM-typed columns before an insert/update.
+// Postgres rejects "" as an invalid enum value - without this, an
+// unselected dropdown submitted as "" causes a hard 500 instead of quietly
+// falling back to the column's own default.
+const stripEmptyEnumValues = (Model, payload) => {
+  const cleaned = { ...payload };
+  Object.keys(cleaned).forEach((key) => {
+    const attr = Model.rawAttributes[key];
+    if (attr && attr.type?.constructor?.name === 'ENUM' && cleaned[key] === '') {
+      delete cleaned[key];
+    }
+  });
+  return cleaned;
+};
 
 // Field -> Model name to manually "populate" after the main query, matching
 // what the old Mongoose .populate() calls returned. Only the fields actually
@@ -62,7 +78,18 @@ function buildCrudController(Model, options = {}) {
     if (scoped) where.society = req.societyId;
 
     Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== 'All' && Model.rawAttributes[key]) where[key] = filters[key];
+      const attr = Model.rawAttributes[key];
+      if (!filters[key] || filters[key] === 'All' || !attr) return;
+      // Free-text STRING fields (e.g. Notice.building, which can hold
+      // comma-separated values like "Tower A, Tower B") use a partial match
+      // so a filter for "Tower A" still finds them. ENUM/other typed fields
+      // (status, category, role, etc.) keep exact match, since partial
+      // matching there would be semantically wrong.
+      if (attr.type?.constructor?.name === 'STRING' && attr.type?.constructor?.name !== 'ENUM') {
+        where[key] = { [Op.iLike]: `%${filters[key]}%` };
+      } else {
+        where[key] = filters[key];
+      }
     });
     if (status && status !== 'All') where.status = status;
     if (category && category !== 'All') where.category = category;
@@ -103,11 +130,12 @@ function buildCrudController(Model, options = {}) {
   });
 
   const createOne = asyncHandler(async (req, res) => {
-    const payload = { ...req.body };
+    const payload = stripEmptyEnumValues(Model, req.body);
     if (scoped) payload.society = req.societyId; // always force to the caller's own society
     delete payload.id;
     delete payload._id;
     const doc = await Model.create(payload);
+    logActivity(req, { action: 'Create', resourceType: Model.name, resourceId: doc.id });
     res.status(201).json(doc);
   });
 
@@ -117,12 +145,13 @@ function buildCrudController(Model, options = {}) {
     const doc = await Model.findOne({ where });
     if (!doc) return res.status(404).json({ message: 'Not found' });
 
-    const payload = { ...req.body };
+    const payload = stripEmptyEnumValues(Model, req.body);
     delete payload.society; // never allow moving a record to a different society
     delete payload.id;
     delete payload._id;
 
     await doc.update(payload);
+    logActivity(req, { action: 'Update', resourceType: Model.name, resourceId: doc.id, details: { changed: Object.keys(payload) } });
     res.json(doc);
   });
 
@@ -132,6 +161,7 @@ function buildCrudController(Model, options = {}) {
     const doc = await Model.findOne({ where });
     if (!doc) return res.status(404).json({ message: 'Not found' });
     await doc.destroy();
+    logActivity(req, { action: 'Delete', resourceType: Model.name, resourceId: req.params.id });
     res.json({ message: 'Deleted successfully' });
   });
 

@@ -44,6 +44,20 @@ const Shift = sequelize.define('Shift', {
     type: DataTypes.ENUM('Scheduled', 'Present', 'Absent', 'On Leave'),
     defaultValue: 'Scheduled',
   },
+  // Actual check-in/check-out (distinct from the scheduled startTime/endTime
+  // above) - "Staff Attendance Management" (#21): In/Out time tracking.
+  actualInTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  actualOutTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  leaveReason: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   handoverNotes: {
     type: DataTypes.TEXT,
     allowNull: true,

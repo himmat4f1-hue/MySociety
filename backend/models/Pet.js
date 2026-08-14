@@ -39,6 +39,13 @@ const Pet = sequelize.define('Pet', {
     allowNull: true,
     defaultValue: '',
   },
+  // Base64 data-URL (e.g. "data:image/jpeg;base64,...") - "Image Display"
+  // (#23). No external file storage is wired up, so images are stored
+  // inline; frontend caps upload size before sending, see PhotoUpload.jsx.
+  photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

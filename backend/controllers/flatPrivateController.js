@@ -1,5 +1,22 @@
 const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
+const { logActivity } = require('../utils/auditLog');
+
+// Strips empty-string values for ENUM-typed columns before an insert/update.
+// Postgres rejects "" as an invalid enum value (it must be one of the
+// defined labels, or absent so the column's own default applies) - without
+// this, any client (UI or direct API call) that sends "" for an unselected
+// dropdown gets a hard 500 instead of the column quietly using its default.
+const stripEmptyEnumValues = (Model, payload) => {
+  const cleaned = { ...payload };
+  Object.keys(cleaned).forEach((key) => {
+    const attr = Model.rawAttributes[key];
+    if (attr && attr.type?.constructor?.name === 'ENUM' && cleaned[key] === '') {
+      delete cleaned[key];
+    }
+  });
+  return cleaned;
+};
 
 // Builds CRUD handlers for models that are private to a single flat:
 // FlatOwner, FamilyMember, Vehicle, HomeService, Pet ("Personal Data" /
@@ -65,7 +82,7 @@ function buildFlatPrivateController(Model, options = {}) {
   });
 
   const createOne = asyncHandler(async (req, res) => {
-    const payload = { ...req.body, society: req.societyId };
+    const payload = stripEmptyEnumValues(Model, { ...req.body, society: req.societyId });
     delete payload.id;
     delete payload._id;
 
@@ -80,6 +97,7 @@ function buildFlatPrivateController(Model, options = {}) {
     }
 
     const doc = await Model.create(payload);
+    logActivity(req, { action: 'Create', resourceType: Model.name, resourceId: doc.id });
     res.status(201).json(doc);
   });
 
@@ -93,13 +111,14 @@ function buildFlatPrivateController(Model, options = {}) {
       }
     }
 
-    const payload = { ...req.body };
+    const payload = stripEmptyEnumValues(Model, req.body);
     delete payload.society;
     delete payload.flatId; // flatId is never editable via update - prevents moving records between flats
     delete payload.id;
     delete payload._id;
 
     await existing.update(payload);
+    logActivity(req, { action: 'Update', resourceType: Model.name, resourceId: existing.id, details: { changed: Object.keys(payload) } });
     res.json(existing);
   });
 
@@ -114,6 +133,7 @@ function buildFlatPrivateController(Model, options = {}) {
     }
 
     await existing.destroy();
+    logActivity(req, { action: 'Delete', resourceType: Model.name, resourceId: req.params.id });
     res.json({ message: 'Deleted successfully' });
   });
 

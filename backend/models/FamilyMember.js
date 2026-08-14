@@ -49,8 +49,11 @@ const FamilyMember = sequelize.define('FamilyMember', {
     allowNull: true,
     defaultValue: '',
   },
+  // Base64 data-URL - was DataTypes.STRING (VARCHAR 255) before, which is
+  // far too small to hold an actual image and would have silently
+  // truncated/errored on any real photo upload. Fixed to TEXT.
   photo: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true,
     defaultValue: '',
   },

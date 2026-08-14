@@ -62,6 +62,16 @@ const Visitor = sequelize.define('Visitor', {
     type: DataTypes.INTEGER,
     defaultValue: 1,
   },
+  // "Visitor Management System" (#46) - digital pre-approval by the
+  // resident, and a photo captured at the gate.
+  preApproved: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

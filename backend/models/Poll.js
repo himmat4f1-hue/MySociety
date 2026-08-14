@@ -49,6 +49,13 @@ const Poll = sequelize.define('Poll', {
     type: DataTypes.ARRAY(DataTypes.UUID),
     defaultValue: [],
   },
+  // "Survey / Poll System" (#50) - when true, the frontend never displays
+  // who voted which way (voters[] is still tracked internally only to
+  // enforce one-vote-per-person, never exposed alongside vote choice).
+  isAnonymous: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
   // FK -> User
   createdBy: {
     type: DataTypes.UUID,

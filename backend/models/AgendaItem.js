@@ -67,7 +67,7 @@ const AgendaItem = sequelize.define('AgendaItem', {
   },
   voteOptions: {
     type: DataTypes.JSONB,
-    defaultValue: [{ label: 'Reject', votes: 0 }],
+    defaultValue: [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }],
   },
 }, {
   timestamps: true,
