@@ -32,6 +32,12 @@ const MeetingAttendance = sequelize.define('MeetingAttendance', {
     type: DataTypes.UUID,
     allowNull: false,
   },
+  // Snapshot of the joiner's name at check-in time, so the "List of
+  // Joiners" table doesn't need a User join for every render.
+  userName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   checkedInAt: {
     type: DataTypes.DATE,
     allowNull: true,

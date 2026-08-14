@@ -1,103 +1,38 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const Meeting = require('../models/Meeting');
 const AgendaItem = require('../models/AgendaItem');
 const MeetingAttendance = require('../models/MeetingAttendance');
+const Membership = require('../models/Membership');
 const makeCrudRouter = require('../utils/makeCrudRouter');
 const asyncHandler = require('../utils/asyncHandler');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/auditLog');
+const { ALL_MANAGEMENT } = require('../config/permissions');
 
 const router = express.Router();
 
-// Meeting lifecycle status transitions - registered BEFORE the generic /:id
-// routes below, same reason as other /:id/action patterns in this app
-// (Express would otherwise treat "start" as an :id value).
+// Real (not hardcoded) quorum totals for this society: "Members" = active
+// resident+tenant memberships, "Management" = active secretary/chairman/
+// treasurer/committee_member memberships.
+const getQuorumTotals = async (societyId) => {
+  const [totalMembers, totalManagement] = await Promise.all([
+    Membership.count({ where: { society: societyId, role: { [Op.in]: ['resident', 'tenant'] }, status: 'active' } }),
+    Membership.count({ where: { society: societyId, role: { [Op.in]: ALL_MANAGEMENT }, status: 'active' } }),
+  ]);
+  return { totalMembers, totalManagement };
+};
 
-// @route PATCH /api/meetings/:id/start
-router.patch(
-  '/:id/start',
-  protect,
-  authorize('secretary'),
-  asyncHandler(async (req, res) => {
-    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
-    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-    if (meeting.status !== 'Not yet Started') {
-      return res.status(400).json({ message: `Meeting is already "${meeting.status}".` });
-    }
-    await meeting.update({ status: 'Started' });
-    logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: 'Started' } });
-    res.json(meeting);
-  })
-);
-
-// @route PATCH /api/meetings/:id/status   { status: 'Counting Attendance' | 'Completed' | 'Cancelled' }
-router.patch(
-  '/:id/status',
-  protect,
-  authorize('secretary'),
-  asyncHandler(async (req, res) => {
-    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
-    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-    const allowed = ['Counting Attendance', 'Completed', 'Cancelled'];
-    if (!allowed.includes(req.body.status)) {
-      return res.status(400).json({ message: `status must be one of: ${allowed.join(', ')}` });
-    }
-    await meeting.update({ status: req.body.status });
-    logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: req.body.status } });
-    res.json(meeting);
-  })
-);
-
-// @route POST /api/meetings/:id/add-me - self check-in, only while the
-// meeting's status is "Counting Attendance".
-router.post(
-  '/:id/add-me',
-  protect,
-  asyncHandler(async (req, res) => {
-    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
-    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-    if (meeting.status !== 'Counting Attendance') {
-      return res.status(403).json({ message: 'Attendance is not being counted for this meeting right now.' });
-    }
-
-    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } });
-    if (existing) return res.status(400).json({ message: 'You are already marked present for this meeting.' });
-
-    const record = await MeetingAttendance.create({
-      society: req.societyId,
-      meeting: meeting.id,
-      role: req.role,
-      flatId: req.flatId || null,
-      user: req.user.id,
-    });
-    res.status(201).json(record);
-  })
-);
-
-// @route GET /api/meetings/:id/full - one meeting with its agenda items and
-// attendance list attached, for the detail card (Completed/Cancelled view).
-router.get(
-  '/:id/full',
-  protect,
-  asyncHandler(async (req, res) => {
-    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
-    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-    const [agendaItems, attendance] = await Promise.all([
-      AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id } }),
-      MeetingAttendance.count({ where: { society: req.societyId, meeting: meeting.id } }),
-    ]);
-    res.json({ ...meeting.toJSON(), agendaItems, attendanceCount: attendance });
-  })
-);
+// Attaches "Building No." (derived from flatId's tower-letter prefix, e.g.
+// "A-101" -> "A") and resolves each joiner's flat, for the joiners table.
+const buildingFromFlatId = (flatId) => (flatId ? flatId.split('-')[0] : '—');
 
 // @route GET /api/meetings/by-date?date=YYYY-MM-DD - meetings scheduled on
-// that day, each with its agenda-item count attached, for the Meetings page
-// list view. Defaults to today when no date is given.
+// that day, each with its agenda-item count, for the Meetings list view.
 router.get(
   '/by-date',
   protect,
   asyncHandler(async (req, res) => {
-    const { Op } = require('sequelize');
     const day = req.query.date ? new Date(req.query.date) : new Date();
     const start = new Date(day);
     start.setHours(0, 0, 0, 0);
@@ -117,6 +52,147 @@ router.get(
     const countByMeeting = new Map(agendaCounts.map((r) => [r.meeting, parseInt(r.count, 10)]));
 
     res.json(meetings.map((m) => ({ ...m.toJSON(), agendaCount: countByMeeting.get(m.id) || 0 })));
+  })
+);
+
+// @route PATCH /api/meetings/:id/start-attendance - Step 1 -> Step 2
+// (Secretary only). "Upcoming" -> "In Progress".
+router.patch(
+  '/:id/start-attendance',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+    if (meeting.status !== 'Upcoming') return res.status(400).json({ message: `Meeting is already "${meeting.status}".` });
+    await meeting.update({ status: 'In Progress' });
+    logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: 'In Progress' } });
+    res.json(meeting);
+  })
+);
+
+// @route PATCH /api/meetings/:id/stop - "Stop Meeting" (Secretary only).
+// "In Progress" -> "Completed".
+router.patch(
+  '/:id/stop',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+    if (meeting.status !== 'In Progress') return res.status(400).json({ message: 'Only a meeting that is In Progress can be stopped.' });
+    await meeting.update({ status: 'Completed' });
+    logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: 'Completed' } });
+    res.json(meeting);
+  })
+);
+
+// @route PATCH /api/meetings/:id/cancel - "Cancel Meeting" (Secretary only).
+// Allowed from Upcoming OR In Progress.
+router.patch(
+  '/:id/cancel',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+    if (!['Upcoming', 'In Progress'].includes(meeting.status)) {
+      return res.status(400).json({ message: `Cannot cancel a meeting that is already "${meeting.status}".` });
+    }
+    await meeting.update({ status: 'Cancelled' });
+    logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: 'Cancelled' } });
+    res.json(meeting);
+  })
+);
+
+// @route POST /api/meetings/:id/add-me - self check-in ("Add Me"). Allowed
+// any time the meeting is "In Progress" - joining is what unlocks the full
+// voting view (Step 4) for that person, it doesn't itself change the
+// meeting's overall status.
+router.post(
+  '/:id/add-me',
+  protect,
+  asyncHandler(async (req, res) => {
+    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+    if (meeting.status !== 'In Progress') {
+      return res.status(403).json({ message: 'This meeting is not in progress right now.' });
+    }
+
+    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } });
+    if (existing) return res.status(400).json({ message: 'You are already marked present for this meeting.' });
+
+    const record = await MeetingAttendance.create({
+      society: req.societyId,
+      meeting: meeting.id,
+      role: req.role,
+      flatId: req.flatId || null,
+      user: req.user.id,
+      userName: req.user.name,
+    });
+    res.status(201).json(record);
+  })
+);
+
+// @route POST /api/meetings/:id/exit - "Exit from Meeting" - a joined
+// person's own UI action to leave the live view. Does NOT remove their
+// attendance record (they're still counted as having joined/attended) -
+// this just acknowledges they've left the session.
+router.post(
+  '/:id/exit',
+  protect,
+  asyncHandler(async (req, res) => {
+    res.json({ message: 'Left the meeting view. Your attendance is still recorded.' });
+  })
+);
+
+// @route GET /api/meetings/:id/full - everything the detail card needs:
+// quorum totals/joined counts, whether the CURRENT user has joined, the
+// agenda items (each with a computed leading "decision"), and the full
+// joiners list with Building/Flat/Name/Role.
+router.get(
+  '/:id/full',
+  protect,
+  asyncHandler(async (req, res) => {
+    const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+    const [agendaItemsRaw, attendanceRows, quorum, myAttendance] = await Promise.all([
+      AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id } }),
+      MeetingAttendance.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['checkedInAt', 'ASC']] }),
+      getQuorumTotals(req.societyId),
+      MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } }),
+    ]);
+
+    const agendaItems = agendaItemsRaw.map((item) => {
+      const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }];
+      const leading = options.reduce((best, o) => (o.votes > (best?.votes || -1) ? o : best), null);
+      return { ...item.toJSON(), voteOptions: options, decision: leading };
+    });
+
+    const joinedMembers = attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length;
+    const joinedManagement = attendanceRows.filter((a) => ALL_MANAGEMENT.includes(a.role)).length;
+
+    res.json({
+      ...meeting.toJSON(),
+      agendaItems,
+      hasJoined: !!myAttendance,
+      attendance: {
+        totalMembers: quorum.totalMembers,
+        joinedMembers,
+        minRequiredMembers: meeting.minRequiredMembers,
+        totalManagement: quorum.totalManagement,
+        joinedManagement,
+        minRequiredManagement: meeting.minRequiredManagement,
+      },
+      joiners: attendanceRows.map((a) => ({
+        _id: a.id,
+        buildingNo: buildingFromFlatId(a.flatId),
+        flatNo: a.flatId || '—',
+        name: a.userName || '—',
+        role: ALL_MANAGEMENT.includes(a.role) ? 'Management' : a.role === 'resident' || a.role === 'tenant' ? 'Member' : a.role,
+      })),
+    });
   })
 );
 
