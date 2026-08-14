@@ -2,6 +2,15 @@ import React from 'react';
 import { PawPrint, CheckCircle2, AlertCircle } from 'lucide-react';
 import ModuleListPage from '../components/ModuleListPage';
 
+const PhotoOrPlaceholder = ({ src, alt }) =>
+  src ? (
+    <img src={src} alt={alt} className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+  ) : (
+    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+      <PawPrint size={16} />
+    </div>
+  );
+
 const config = {
   title: 'Pets',
   subtitle: 'Registered pets - visible only to your own flat, Secretary and Chairman',
@@ -15,6 +24,7 @@ const config = {
   ],
   filters: [{ key: 'type', label: 'All Type', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] }],
   columns: [
+    { key: 'photo', label: 'Photo', render: (i) => <PhotoOrPlaceholder src={i.photo} alt={i.name} /> },
     { key: 'name', label: 'Pet Name' },
     { key: 'type', label: 'Type' },
     { key: 'breed', label: 'Breed' },
@@ -22,6 +32,7 @@ const config = {
     { key: 'vaccinated', label: 'Vaccinated', render: (i) => (i.vaccinated ? 'Yes' : 'No') },
   ],
   formFields: [
+    { name: 'photo', label: 'Photo', type: 'photo' },
     { name: 'name', label: 'Pet Name', required: true },
     { name: 'type', label: 'Type', type: 'select', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] },
     { name: 'breed', label: 'Breed' },

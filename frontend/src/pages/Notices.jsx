@@ -17,6 +17,7 @@ const config = {
   filters: [
     { key: 'status', label: 'All Status', options: ['Published', 'Scheduled', 'Archived'] },
     { key: 'category', label: 'All Category', options: ['Finance', 'Maintenance', 'Community', 'Rules & Regulations', 'Amenities', 'Security', 'General'] },
+    { key: 'building', label: 'All Towers', options: ['All Towers', 'Tower A', 'Tower B', 'Tower C', 'Tower D', 'Tower E'] },
   ],
   columns: [
     { key: 'title', label: 'Notice' },

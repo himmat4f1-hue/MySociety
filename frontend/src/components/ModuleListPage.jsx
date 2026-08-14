@@ -6,6 +6,7 @@ import FormModal from './FormModal';
 import Layout from './Layout';
 import StatCard from './StatCard';
 import { useAuth } from '../context/AuthContext';
+import { downloadCsv } from '../utils/csvExport';
 
 // config = {
 //   title, subtitle, endpoint, icon,
@@ -27,6 +28,7 @@ const ModuleListPage = ({ config }) => {
   const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const limit = 10;
 
@@ -50,6 +52,29 @@ const ModuleListPage = ({ config }) => {
   }, [fetchData]);
 
   const canWrite = config.canWrite ? config.canWrite(user?.role) : true;
+
+  // "Report Downloads" (#25) - exports ALL rows matching the current
+  // search/filters (not just the current page) as a CSV file, using the
+  // same column labels shown on screen. Generic, so every module that uses
+  // ModuleListPage gets this for free.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { search, ...filterValues, page: 1, limit: 10000 };
+      const res = await api.get(config.endpoint, { params });
+      const rows = res.data.data || [];
+      downloadCsv(
+        config.title,
+        config.columns.map((c) => c.label),
+        config.columns.map((c) => c.key),
+        rows
+      );
+    } catch (err) {
+      alert('Could not export data. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleAdd = () => {
     setEditingItem(null);
@@ -123,8 +148,8 @@ const ModuleListPage = ({ config }) => {
               </select>
             ))}
 
-            <button className="btn-secondary flex items-center gap-1">
-              <Download size={16} /> Export
+            <button onClick={handleExport} disabled={exporting} className="btn-secondary flex items-center gap-1 disabled:opacity-60">
+              <Download size={16} /> {exporting ? 'Exporting...' : 'Export'}
             </button>
 
             {canWrite && (
