@@ -59,6 +59,37 @@ const Resident = sequelize.define('Resident', {
     type: DataTypes.ENUM('Active', 'Inactive'),
     defaultValue: 'Active',
   },
+  // "Member Onboarding / Offboarding" (#39)
+  moveOutDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  // array of {label, completed} - e.g. NOC from society, dues cleared, keys handed over
+  onboardingChecklist: {
+    type: DataTypes.JSONB,
+    defaultValue: [
+      { label: 'ID proof submitted', completed: false },
+      { label: 'NOC from society', completed: false },
+      { label: 'Maintenance deposit collected', completed: false },
+      { label: 'Keys/access cards issued', completed: false },
+    ],
+  },
+  offboardingChecklist: {
+    type: DataTypes.JSONB,
+    defaultValue: [
+      { label: 'Outstanding dues cleared', completed: false },
+      { label: 'Society NOC issued', completed: false },
+      { label: 'Keys/access cards returned', completed: false },
+      { label: 'Final handover inspection done', completed: false },
+    ],
+  },
+  // "Resident Directory" (#52) - when false, this resident's contact info
+  // (phone/email, resolved from the linked User) is hidden from the
+  // directory for everyone except Secretary/Chairman.
+  directoryVisible: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
 }, {
   timestamps: true,
 });

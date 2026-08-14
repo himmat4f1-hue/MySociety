@@ -63,6 +63,17 @@ const Document = sequelize.define('Document', {
     allowNull: true,
     defaultValue: DataTypes.NOW,
   },
+  // "Document Management System" (#48) - simple version counter + history.
+  // Re-uploading the same document increments version and appends the old
+  // fileUrl/uploadedOn into previousVersions rather than losing it.
+  version: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
+  previousVersions: {
+    type: DataTypes.JSONB,
+    defaultValue: [], // [{ version, fileUrl, uploadedBy, uploadedOn }]
+  },
 }, {
   timestamps: true,
 });

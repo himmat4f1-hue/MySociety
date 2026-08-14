@@ -14,6 +14,7 @@ import ListPropertyForSale from './pages/ListPropertyForSale';
 import Residents from './pages/Residents';
 import Units from './pages/Units';
 import Finance from './pages/Finance';
+import FinancialStatements from './pages/FinancialStatements';
 import Visitors from './pages/Visitors';
 import Complaints from './pages/Complaints';
 import Maintenance from './pages/Maintenance';
@@ -43,6 +44,13 @@ import RoleChecklistPage from './pages/RoleChecklistPage';
 import Rules from './pages/Rules';
 import ServiceProviders from './pages/ServiceProviders';
 import Parking from './pages/Parking';
+import Inventory from './pages/Inventory';
+import InsurancePolicies from './pages/InsurancePolicies';
+import FeedbackPage from './pages/Feedback';
+import SupportTickets from './pages/SupportTickets';
+import LegalCompliancePage from './pages/LegalCompliance';
+import AuditLog from './pages/AuditLog';
+import UtilityReadings from './pages/UtilityReadings';
 import MeetingAttendancePage from './pages/MeetingAttendancePage';
 import AgendaItems from './pages/AgendaItems';
 import Elections from './pages/Elections';
@@ -65,6 +73,7 @@ function App() {
       <Route path="/app/residents" element={<ProtectedRoute roles={['security', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Residents /></ProtectedRoute>} />
       <Route path="/app/units" element={<ProtectedRoute roles={['secretary', 'chairman']}><Units /></ProtectedRoute>} />
       <Route path="/app/finance" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Finance /></ProtectedRoute>} />
+      <Route path="/app/financial-statements" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer']}><FinancialStatements /></ProtectedRoute>} />
       <Route path="/app/visitors" element={<ProtectedRoute roles={['security', 'secretary', 'chairman', 'tenant']}><Visitors /></ProtectedRoute>} />
       <Route path="/app/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
       <Route path="/app/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
@@ -95,6 +104,13 @@ function App() {
       <Route path="/app/rules" element={<ProtectedRoute><Rules /></ProtectedRoute>} />
       <Route path="/app/service-providers" element={<ProtectedRoute><ServiceProviders /></ProtectedRoute>} />
       <Route path="/app/parking" element={<ProtectedRoute><Parking /></ProtectedRoute>} />
+      <Route path="/app/inventory" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><Inventory /></ProtectedRoute>} />
+      <Route path="/app/insurance" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><InsurancePolicies /></ProtectedRoute>} />
+      <Route path="/app/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
+      <Route path="/app/support-tickets" element={<ProtectedRoute><SupportTickets /></ProtectedRoute>} />
+      <Route path="/app/legal-compliance" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><LegalCompliancePage /></ProtectedRoute>} />
+      <Route path="/app/audit-log" element={<ProtectedRoute roles={['secretary', 'chairman']}><AuditLog /></ProtectedRoute>} />
+      <Route path="/app/utility-readings" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><UtilityReadings /></ProtectedRoute>} />
       <Route path="/app/meeting-attendance" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><MeetingAttendancePage /></ProtectedRoute>} />
       <Route path="/app/agenda-items" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><AgendaItems /></ProtectedRoute>} />
       <Route path="/app/elections" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member', 'resident', 'tenant']}><Elections /></ProtectedRoute>} />

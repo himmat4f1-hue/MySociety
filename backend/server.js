@@ -65,6 +65,14 @@ app.use('/api/rules', require('./routes/ruleRoutes'));
 app.use('/api/service-providers', require('./routes/serviceProviderContactRoutes'));
 app.use('/api/parking', require('./routes/parkingRoutes'));
 app.use('/api/amenity-usage', require('./routes/amenityUsageLogRoutes'));
+app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
+app.use('/api/insurance', require('./routes/insurancePolicyRoutes'));
+app.use('/api/feedback', require('./routes/feedbackRoutes'));
+app.use('/api/support-tickets', require('./routes/supportTicketRoutes'));
+app.use('/api/legal-compliance', require('./routes/legalComplianceRoutes'));
+app.use('/api/audit-log', require('./routes/activityLogRoutes'));
+app.use('/api/utility-readings', require('./routes/utilityReadingRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);

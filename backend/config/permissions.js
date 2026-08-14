@@ -54,6 +54,13 @@ const PERMISSIONS = {
   notices: { view: 'any', create: ['secretary'], update: ['secretary'], delete: ['secretary'] },
   roleChecklist: { view: ALL_MANAGEMENT, create: ['secretary'], update: ['secretary'] },
   serviceProviderContacts: { view: 'any', create: ['secretary'], update: ['secretary'], delete: ['secretary'] },
+  inventory: { view: ALL_MANAGEMENT, create: ['secretary'], update: ['secretary'], delete: ['secretary'] },
+  insurance: { view: ALL_MANAGEMENT, create: ['secretary', 'treasurer'], update: ['secretary', 'treasurer'], delete: ['secretary'] },
+  feedback: { view: ALL_MANAGEMENT, create: 'any', update: ['secretary'], delete: ['secretary'] },
+  supportTickets: { view: 'any', create: 'any', update: ['secretary'], delete: ['secretary'] },
+  legalCompliance: { view: ALL_MANAGEMENT, create: ['secretary', 'chairman'], update: ['secretary', 'chairman'], delete: ['secretary'] },
+  utilityReadings: { view: ALL_MANAGEMENT, create: ['secretary'], update: ['secretary'], delete: ['secretary'] },
+  auditLog: { view: ['secretary', 'chairman'] },
 
   // --- Leases / Parking / Structure ---
   leases: { view: ALL_MANAGEMENT, create: ['secretary'], update: ['secretary'], delete: ['secretary'] },

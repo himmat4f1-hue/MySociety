@@ -57,6 +57,13 @@ const Rule = require('./Rule');
 const ServiceProviderContact = require('./ServiceProviderContact');
 const ParkingAllotment = require('./ParkingAllotment');
 const AmenityUsageLog = require('./AmenityUsageLog');
+const ActivityLog = require('./ActivityLog');
+const InventoryItem = require('./InventoryItem');
+const InsurancePolicy = require('./InsurancePolicy');
+const Feedback = require('./Feedback');
+const SupportTicket = require('./SupportTicket');
+const LegalCompliance = require('./LegalCompliance');
+const UtilityReading = require('./UtilityReading');
 
 // ============================================
 // EXPORT ALL MODELS AND SEQUELIZE INSTANCE
@@ -105,4 +112,11 @@ module.exports = {
   ServiceProviderContact,
   ParkingAllotment,
   AmenityUsageLog,
+  ActivityLog,
+  InventoryItem,
+  InsurancePolicy,
+  Feedback,
+  SupportTicket,
+  LegalCompliance,
+  UtilityReading,
 };

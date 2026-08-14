@@ -56,6 +56,25 @@ const Complaint = sequelize.define('Complaint', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  // "Grievance Redressal Mechanism" (#53) - escalation ladder + satisfaction
+  // feedback. escalationLevel 0 = normal (Secretary handling); higher levels
+  // mean it's been escalated up the chain (e.g. 1 = Chairman, 2 = Committee).
+  escalationLevel: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  escalatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  escalationReason: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  satisfactionRating: {
+    type: DataTypes.INTEGER, // 1-5, filled in by the raiser after resolution
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });
