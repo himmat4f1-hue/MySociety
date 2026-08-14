@@ -53,6 +53,10 @@ const CameraRequest = require('./CameraRequest');
 const Emergency = require('./Emergency');
 const Policy = require('./Policy');
 const Membership = require('./Membership');
+const Rule = require('./Rule');
+const ServiceProviderContact = require('./ServiceProviderContact');
+const ParkingAllotment = require('./ParkingAllotment');
+const AmenityUsageLog = require('./AmenityUsageLog');
 
 // ============================================
 // EXPORT ALL MODELS AND SEQUELIZE INSTANCE
@@ -97,4 +101,8 @@ module.exports = {
   Emergency,
   Policy,
   Membership,
+  Rule,
+  ServiceProviderContact,
+  ParkingAllotment,
+  AmenityUsageLog,
 };

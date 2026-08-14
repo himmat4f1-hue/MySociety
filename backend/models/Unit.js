@@ -57,6 +57,15 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.FLOAT,
     allowNull: true,
   },
+  // "Flat Ownership Details" (#31)
+  ownersCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
+  managedBy: {
+    type: DataTypes.ENUM('Owner', 'Tenant', 'Society', 'None'),
+    defaultValue: 'Owner',
+  },
 }, {
   timestamps: true,
   indexes: [

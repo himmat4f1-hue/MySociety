@@ -56,6 +56,12 @@ const Visitor = sequelize.define('Visitor', {
     type: DataTypes.UUID,
     allowNull: true,
   },
+  // "Visitor & Service Provider Limits" (#22) - how many people this single
+  // entry covers (e.g. a family of 4 visiting together = 4, not 4 rows).
+  personsCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
 }, {
   timestamps: true,
 });

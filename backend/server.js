@@ -61,6 +61,10 @@ app.use('/api/meeting-attendance', require('./routes/meetingAttendanceRoutes'));
 app.use('/api/committee-votes', require('./routes/committeeVoteRoutes'));
 app.use('/api/management-votes', require('./routes/managementVoteRoutes'));
 app.use('/api/society-structure', require('./routes/societyStructureRoutes'));
+app.use('/api/rules', require('./routes/ruleRoutes'));
+app.use('/api/service-providers', require('./routes/serviceProviderContactRoutes'));
+app.use('/api/parking', require('./routes/parkingRoutes'));
+app.use('/api/amenity-usage', require('./routes/amenityUsageLogRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);

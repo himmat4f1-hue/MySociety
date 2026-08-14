@@ -37,6 +37,8 @@ import {
   UserCheck2,
   ListChecks,
   Tag,
+  Gavel,
+  SquareParking,
 } from 'lucide-react';
 
 export const ALL_ROLES = [
@@ -64,6 +66,9 @@ export const NAV_ITEMS = [
   { name: 'Vehicle Data', path: '/app/vehicles', icon: Car, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
   { name: 'Home Services', path: '/app/home-services', icon: HomeIcon, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
   { name: 'Role Checklist', path: '/app/role-checklist', icon: ClipboardCheck, roles: ALL_ROLES },
+  { name: 'Society Rules', path: '/app/rules', icon: Gavel, roles: ALL_ROLES },
+  { name: 'Service Providers', path: '/app/service-providers', icon: Wrench, roles: ALL_ROLES },
+  { name: 'Parking', path: '/app/parking', icon: SquareParking, roles: ALL_ROLES },
   { name: 'Meeting Attendance', path: '/app/meeting-attendance', icon: UserCheck2, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
   { name: 'Agenda Items', path: '/app/agenda-items', icon: ListChecks, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
   { name: 'Elections', path: '/app/elections', icon: Vote, roles: ['secretary', 'chairman', 'treasurer', 'committee_member', 'resident', 'tenant'] },

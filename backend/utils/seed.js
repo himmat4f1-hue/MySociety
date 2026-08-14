@@ -47,6 +47,11 @@ const AgendaItem = require('../models/AgendaItem');
 const MeetingAttendance = require('../models/MeetingAttendance');
 const CommitteeVote = require('../models/CommitteeVote');
 const ManagementVote = require('../models/ManagementVote');
+const Rule = require('../models/Rule');
+const ServiceProviderContact = require('../models/ServiceProviderContact');
+const ParkingAllotment = require('../models/ParkingAllotment');
+const AmenityUsageLog = require('../models/AmenityUsageLog');
+const seedLargeSociety = require('./seedLargeSociety');
 
 // Core seeding logic. Assumes the database is already connected (does NOT
 // call connectDB() or process.exit() itself) so it's safe to call from a
@@ -92,6 +97,10 @@ const runSeed = async () => {
     MeetingAttendance.destroy({ where: {}, truncate: true, cascade: true }),
     CommitteeVote.destroy({ where: {}, truncate: true, cascade: true }),
     ManagementVote.destroy({ where: {}, truncate: true, cascade: true }),
+    Rule.destroy({ where: {}, truncate: true, cascade: true }),
+    ServiceProviderContact.destroy({ where: {}, truncate: true, cascade: true }),
+    ParkingAllotment.destroy({ where: {}, truncate: true, cascade: true }),
+    AmenityUsageLog.destroy({ where: {}, truncate: true, cascade: true }),
   ]);
 
   console.log('Creating subscription plans...');
@@ -501,7 +510,18 @@ const runSeed = async () => {
   console.log('  Multi-society (3 societies, 3 roles, 5 flats total)  -> multiuser@mysociety.com');
   console.log('    ^ log in as multiuser or rahul to see the account switcher in action');
 
-  return { society: demoSociety.name };
+  // ---------------------------------------------------------------------
+  // Large-scale test society: 100 flats, 1 year of history, every module
+  // populated - for bulk relationship verification across all roles.
+  // ---------------------------------------------------------------------
+  const largeSocietyResult = await seedLargeSociety({
+    User, Society, Membership, Unit, Building, Resident, Pet, Vehicle, HomeService, FamilyMember,
+    Visitor, Complaint, Maintenance, Invoice, Transaction, Meeting, AgendaItem, MeetingAttendance,
+    Amenity, AmenityUsageLog, Lease, GatePass, Task, Supply, Notice, Poll, CommitteeVote, ManagementVote,
+    Rule, ServiceProviderContact, ParkingAllotment, RoleChecklist,
+  });
+
+  return { society: demoSociety.name, largeSociety: largeSocietyResult.society };
 };
 
 module.exports = runSeed;

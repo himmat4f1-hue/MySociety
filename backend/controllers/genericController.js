@@ -15,6 +15,7 @@ const REF_MODELS = {
   requestedBy: 'User',
   issuedBy: 'User',
   approvedBy: 'User',
+  amenity: 'Amenity',
 };
 
 // Manually replaces populate-field UUIDs with the referenced record (a small

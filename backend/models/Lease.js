@@ -53,6 +53,15 @@ const Lease = sequelize.define('Lease', {
     type: DataTypes.ENUM('Active', 'Expiring Soon', 'Expired', 'Renewed', 'Pending'),
     defaultValue: 'Active',
   },
+  policeVerificationStatus: {
+    type: DataTypes.ENUM('Not Submitted', 'Submitted', 'Verified', 'Rejected'),
+    defaultValue: 'Not Submitted',
+  },
+  maintenanceCharges: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    defaultValue: 0,
+  },
 }, {
   timestamps: true,
 });

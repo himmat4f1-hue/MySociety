@@ -40,6 +40,9 @@ import FamilyMembers from './pages/FamilyMembers';
 import Vehicles from './pages/Vehicles';
 import HomeServices from './pages/HomeServices';
 import RoleChecklistPage from './pages/RoleChecklistPage';
+import Rules from './pages/Rules';
+import ServiceProviders from './pages/ServiceProviders';
+import Parking from './pages/Parking';
 import MeetingAttendancePage from './pages/MeetingAttendancePage';
 import AgendaItems from './pages/AgendaItems';
 import Elections from './pages/Elections';
@@ -89,6 +92,9 @@ function App() {
       <Route path="/app/vehicles" element={<ProtectedRoute roles={['secretary', 'chairman', 'resident', 'tenant']}><Vehicles /></ProtectedRoute>} />
       <Route path="/app/home-services" element={<ProtectedRoute roles={['secretary', 'chairman', 'resident', 'tenant']}><HomeServices /></ProtectedRoute>} />
       <Route path="/app/role-checklist" element={<ProtectedRoute><RoleChecklistPage /></ProtectedRoute>} />
+      <Route path="/app/rules" element={<ProtectedRoute><Rules /></ProtectedRoute>} />
+      <Route path="/app/service-providers" element={<ProtectedRoute><ServiceProviders /></ProtectedRoute>} />
+      <Route path="/app/parking" element={<ProtectedRoute><Parking /></ProtectedRoute>} />
       <Route path="/app/meeting-attendance" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><MeetingAttendancePage /></ProtectedRoute>} />
       <Route path="/app/agenda-items" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><AgendaItems /></ProtectedRoute>} />
       <Route path="/app/elections" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member', 'resident', 'tenant']}><Elections /></ProtectedRoute>} />

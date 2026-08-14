@@ -39,6 +39,17 @@ const Membership = sequelize.define('Membership', {
     type: DataTypes.ENUM('active', 'inactive'),
     defaultValue: 'active',
   },
+  // For "Cancellation Options" (#16) - lets Secretary/Chairman terminate a
+  // specific management/committee appointment, or a whole role, without
+  // deleting the person's account or their history.
+  terminatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  terminationReason: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   indexes: [

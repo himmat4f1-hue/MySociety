@@ -59,8 +59,6 @@ const StatTile = ({ icon: Icon, label, value, tone = 'blue' }) => {
   );
 };
 
-// Two stats stacked in one card - used for Security/Housekeeping so the row
-// doesn't end up with two nearly-empty tiles side by side.
 const DualStatCard = ({ items }) => (
   <div className="card py-3.5">
     <div className="grid grid-cols-2 divide-x divide-slate-100">
@@ -193,7 +191,6 @@ const SecretaryDashboard = () => {
   return (
     <Layout title="Dashboard" topbarExtra={dateFilter}>
       <div className="space-y-4">
-        {/* ---- Flats/Houses (own card, since it carries a breakdown) + quick stat tiles ---- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="card py-3.5">
             <div className="flex items-center gap-2 text-slate-500 text-xs mb-2">
@@ -221,7 +218,6 @@ const SecretaryDashboard = () => {
           <StatTile icon={Tag} label="No. of Properties in Sales" value={detail.propertiesInSale ?? 0} tone="rose" />
         </div>
 
-        {/* ---- Staff (merged into one card) + Upcoming Meetings ---- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <DualStatCard
             items={[
@@ -230,7 +226,7 @@ const SecretaryDashboard = () => {
             ]}
           />
 
-          <div className="card lg:col-span-2 min-w-0">
+          <div className="card min-w-0 lg:col-span-2">
             <CardTitle icon={CalendarDays} tone="blue">Upcoming Meetings</CardTitle>
             {detail.meetings.length === 0 ? (
               <p className="text-sm text-slate-400">No upcoming meetings.</p>
@@ -261,7 +257,6 @@ const SecretaryDashboard = () => {
           </div>
         </div>
 
-        {/* ---- Pets / Vehicles / Home Services ---- */}
         <div className="grid md:grid-cols-3 gap-4">
           <div className="card min-w-0">
             <CardTitle icon={PawPrint} tone="purple">No. of Pets (By Type)</CardTitle>
@@ -277,11 +272,10 @@ const SecretaryDashboard = () => {
           </div>
         </div>
 
-        {/* ---- Complaints (merged Pending+Resolved into one card) + Lease Submission ---- */}
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="card lg:col-span-2 min-w-0">
+          <div className="card min-w-0 lg:col-span-2">
             <CardTitle icon={AlertTriangle} tone="red">Complaints &amp; Requests (By Priority)</CardTitle>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               <div>
                 <p className="text-xs font-semibold text-slate-400 mb-1 flex items-center gap-1">
                   <AlertTriangle size={12} className="text-red-500" /> Pending
@@ -318,13 +312,10 @@ const SecretaryDashboard = () => {
           </div>
         </div>
 
-        {/* ---- Finance Summary ---- */}
         <div>
           <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Finance Summary (as of {selectedDate})</p>
           <FinanceTiles collection={detail.finance.collection} expense={detail.finance.expense} balance={detail.finance.balance} />
         </div>
-
-        {/* ---- Celebration / Donation ---- */}
         <div>
           <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide flex items-center gap-1.5">
             <Gift size={13} className="text-purple-600" /> Celebration / Donation
@@ -332,7 +323,6 @@ const SecretaryDashboard = () => {
           <FinanceTiles collection={detail.celebration.collection} expense={detail.celebration.expense} balance={detail.celebration.balance} />
         </div>
 
-        {/* ---- Society Fund & Assets + Amenities ---- */}
         <div className="grid lg:grid-cols-2 gap-4">
           <div className="card min-w-0">
             <CardTitle icon={Landmark} tone="blue">Society Fund &amp; Assets Information</CardTitle>
@@ -415,8 +405,7 @@ const SecretaryDashboard = () => {
           </div>
         </div>
 
-        {/* ---- List of Management (full width, multi-column so it never needs a cramped scrollbox) ---- */}
-        <div className="card min-w-0">
+        <div className="card">
           <CardTitle icon={Crown} tone="amber">List of Management (By Role)</CardTitle>
           {detail.management.length === 0 ? (
             <p className="text-sm text-slate-400">No management roles assigned yet.</p>
