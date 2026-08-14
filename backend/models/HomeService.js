@@ -50,7 +50,7 @@ const HomeService = sequelize.define('HomeService', {
     defaultValue: '',
   },
   photo: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT, // was STRING(255) - too small for a real base64 image, same bug as FamilyMember had
     allowNull: true,
     defaultValue: '',
   },
@@ -63,6 +63,17 @@ const HomeService = sequelize.define('HomeService', {
     type: DataTypes.STRING,
     allowNull: true,
     defaultValue: '',
+  },
+  // "Visitor & Service Provider Limits" / vehicle tracking - if this person
+  // drives themselves in, capture their vehicle separately from the
+  // resident's own Vehicle records (this is THEIR vehicle, not the flat's).
+  vehicleNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  vehicleType: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
 }, {
   timestamps: true,

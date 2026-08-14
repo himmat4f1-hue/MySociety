@@ -22,7 +22,7 @@ const config = {
     { label: 'Vaccinated', icon: CheckCircle2, color: 'green', compute: (d) => d.filter((x) => x.vaccinated).length },
     { label: 'Not Vaccinated', icon: AlertCircle, color: 'amber', compute: (d) => d.filter((x) => !x.vaccinated).length },
   ],
-  filters: [{ key: 'type', label: 'All Type', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] }],
+  filters: [{ key: 'type', label: 'All Type', optionsSource: 'petTypes', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] }],
   columns: [
     { key: 'photo', label: 'Photo', render: (i) => <PhotoOrPlaceholder src={i.photo} alt={i.name} /> },
     { key: 'name', label: 'Pet Name' },
@@ -34,7 +34,7 @@ const config = {
   formFields: [
     { name: 'photo', label: 'Photo', type: 'photo' },
     { name: 'name', label: 'Pet Name', required: true },
-    { name: 'type', label: 'Type', type: 'select', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] },
+    { name: 'type', label: 'Type', type: 'select', optionsSource: 'petTypes', options: ['Dog', 'Cat', 'Bird', 'Fish', 'Other'] },
     { name: 'breed', label: 'Breed' },
     { name: 'flatId', label: 'Flat (e.g. G 610) - only needed if you are Secretary/Chairman adding for another flat' },
     { name: 'notes', label: 'Notes', type: 'textarea' },

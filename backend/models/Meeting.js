@@ -51,6 +51,12 @@ const Meeting = sequelize.define('Meeting', {
     type: DataTypes.UUID,
     allowNull: true,
   },
+  // Meeting lifecycle status - drives the Meetings page UI (Start Meeting /
+  // Add Me buttons, and which card layout to show).
+  status: {
+    type: DataTypes.ENUM('Not yet Started', 'Started', 'Counting Attendance', 'Completed', 'Cancelled'),
+    defaultValue: 'Not yet Started',
+  },
 }, {
   timestamps: true,
 });

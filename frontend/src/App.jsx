@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Home from './pages/public/Home';
@@ -24,10 +24,11 @@ import Documents from './pages/Documents';
 import Meetings from './pages/Meetings';
 import Voting from './pages/Voting';
 import Emergency from './pages/Emergency';
-import CameraRequests from './pages/CameraRequests';
+// CameraRequests page retired - merged into Complaints & Requests (category="Camera")
 import Policies from './pages/Policies';
 import Investments from './pages/Investments';
 import Funds from './pages/Funds';
+import CelebrationDonation from './pages/CelebrationDonation';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import GatePasses from './pages/GatePasses';
@@ -51,8 +52,8 @@ import SupportTickets from './pages/SupportTickets';
 import LegalCompliancePage from './pages/LegalCompliance';
 import AuditLog from './pages/AuditLog';
 import UtilityReadings from './pages/UtilityReadings';
-import MeetingAttendancePage from './pages/MeetingAttendancePage';
-import AgendaItems from './pages/AgendaItems';
+// MeetingAttendancePage & AgendaItems retired - consolidated into the
+// Meetings page itself (per-meeting cards + detail view with voting).
 import Elections from './pages/Elections';
 import SocietyStructure from './pages/SocietyStructure';
 
@@ -83,10 +84,12 @@ function App() {
       <Route path="/app/meetings" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><Meetings /></ProtectedRoute>} />
       <Route path="/app/voting" element={<ProtectedRoute roles={['resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><Voting /></ProtectedRoute>} />
       <Route path="/app/emergency" element={<ProtectedRoute><Emergency /></ProtectedRoute>} />
-      <Route path="/app/camera-requests" element={<ProtectedRoute roles={['security', 'secretary', 'chairman', 'resident', 'treasurer', 'committee_member', 'tenant']}><CameraRequests /></ProtectedRoute>} />
+      {/* Camera Requests merged into Complaints & Requests - old links still land somewhere sensible */}
+      <Route path="/app/camera-requests" element={<Navigate to="/app/complaints" replace />} />
       <Route path="/app/policies" element={<ProtectedRoute><Policies /></ProtectedRoute>} />
       <Route path="/app/investments" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Investments /></ProtectedRoute>} />
       <Route path="/app/funds" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><Funds /></ProtectedRoute>} />
+      <Route path="/app/celebration-donation" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><CelebrationDonation /></ProtectedRoute>} />
       <Route path="/app/reports" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer']}><Reports /></ProtectedRoute>} />
       <Route path="/app/settings" element={<ProtectedRoute roles={['secretary', 'chairman']}><Settings /></ProtectedRoute>} />
       <Route path="/app/society-structure" element={<ProtectedRoute roles={['chairman', 'secretary']}><SocietyStructure /></ProtectedRoute>} />
@@ -111,8 +114,9 @@ function App() {
       <Route path="/app/legal-compliance" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><LegalCompliancePage /></ProtectedRoute>} />
       <Route path="/app/audit-log" element={<ProtectedRoute roles={['secretary', 'chairman']}><AuditLog /></ProtectedRoute>} />
       <Route path="/app/utility-readings" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member']}><UtilityReadings /></ProtectedRoute>} />
-      <Route path="/app/meeting-attendance" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><MeetingAttendancePage /></ProtectedRoute>} />
-      <Route path="/app/agenda-items" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><AgendaItems /></ProtectedRoute>} />
+      {/* Meeting Attendance & Agenda Items merged into Meetings - old links redirect there */}
+      <Route path="/app/meeting-attendance" element={<Navigate to="/app/meetings" replace />} />
+      <Route path="/app/agenda-items" element={<Navigate to="/app/meetings" replace />} />
       <Route path="/app/elections" element={<ProtectedRoute roles={['secretary', 'chairman', 'treasurer', 'committee_member', 'resident', 'tenant']}><Elections /></ProtectedRoute>} />
 
       <Route path="*" element={<Home />} />

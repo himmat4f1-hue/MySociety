@@ -36,7 +36,7 @@ const Vehicle = sequelize.define('Vehicle', {
     defaultValue: '',
   },
   photo: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT, // was STRING(255) - too small for a real base64 image, same bug as FamilyMember had
     allowNull: true,
     defaultValue: '',
   },

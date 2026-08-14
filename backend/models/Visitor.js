@@ -72,6 +72,17 @@ const Visitor = sequelize.define('Visitor', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  // Their OWN vehicle (if they drove in) - separate from the resident's own
+  // Vehicle records, since a visitor's car isn't the flat's registered
+  // vehicle.
+  vehicleNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  vehicleType: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

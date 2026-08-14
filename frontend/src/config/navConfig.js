@@ -47,6 +47,7 @@ import {
   LifeBuoy,
   Scale,
   Droplets,
+  Gift,
 } from 'lucide-react';
 
 export const ALL_ROLES = [
@@ -84,8 +85,8 @@ export const NAV_ITEMS = [
   { name: 'Legal Compliance', path: '/app/legal-compliance', icon: Scale, roles: ['secretary', 'chairman', 'treasurer', 'committee_member'] },
   { name: 'Audit Log', path: '/app/audit-log', icon: History, roles: ['secretary', 'chairman'] },
   { name: 'Utility Usage', path: '/app/utility-readings', icon: Droplets, roles: ['secretary', 'chairman', 'treasurer', 'committee_member'] },
-  { name: 'Meeting Attendance', path: '/app/meeting-attendance', icon: UserCheck2, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
-  { name: 'Agenda Items', path: '/app/agenda-items', icon: ListChecks, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
+  // Meeting Attendance & Agenda Items consolidated into the Meetings page
+  // itself (per-meeting cards + detail view) - no separate menus.
   { name: 'Elections', path: '/app/elections', icon: Vote, roles: ['secretary', 'chairman', 'treasurer', 'committee_member', 'resident', 'tenant'] },
 
   { name: 'Residents', path: '/app/residents', icon: Users, roles: ['security', 'secretary', 'chairman', 'treasurer', 'committee_member'] },
@@ -105,11 +106,16 @@ export const NAV_ITEMS = [
   { name: 'Documents', path: '/app/documents', icon: FileText, roles: ['secretary', 'chairman', 'accountant', 'treasurer', 'committee_member'] },
   { name: 'Meetings', path: '/app/meetings', icon: CalendarDays, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
   { name: 'Voting / Polls', path: '/app/voting', icon: Vote, roles: ALL_ROLES.filter((r) => r !== 'housekeeping' && r !== 'security') },
-  { name: 'Emergency (SOS)', path: '/app/emergency', icon: ShieldAlert, roles: ALL_ROLES },
-  { name: 'Camera Requests', path: '/app/camera-requests', icon: Video, roles: ['security', 'secretary', 'chairman', 'resident', 'treasurer', 'committee_member', 'tenant'] },
+  // Emergency (SOS) intentionally has NO sidebar entry - it's accessed via
+  // the Emergency button next to the notification bell in the Topbar
+  // instead (see components/Topbar.jsx), since it needs to be reachable
+  // from anywhere, not buried in the menu.
+  // Camera Requests merged into Complaints & Requests (use category="Camera"
+  // there instead) - no separate menu.
   { name: 'Society Policies', path: '/app/policies', icon: ScrollText, roles: ALL_ROLES },
   { name: 'Investments & Assets', path: '/app/investments', icon: TrendingUp, roles: ['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member'] },
   { name: 'Funds', path: '/app/funds', icon: PiggyBank, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
+  { name: 'Celebration & Donation', path: '/app/celebration-donation', icon: Gift, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
   { name: 'Reports', path: '/app/reports', icon: BarChart3, roles: ['accountant', 'secretary', 'chairman', 'treasurer'] },
   { name: 'Society Structure', path: '/app/society-structure', icon: Building2, roles: ['chairman', 'secretary'] },
   { name: 'Settings', path: '/app/settings', icon: Settings, roles: ['secretary', 'chairman'] },

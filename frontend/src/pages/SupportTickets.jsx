@@ -4,7 +4,7 @@ import ModuleListPage from '../components/ModuleListPage';
 
 const config = {
   title: 'Helpdesk / Support Tickets',
-  subtitle: 'General queries to management - billing, access, documentation, etc.',
+  subtitle: 'Report a problem with this website/app (login issues, bugs, page not loading, etc.) - not for society facility complaints, use Complaints & Requests for those.',
   endpoint: '/support-tickets',
   searchPlaceholder: 'Search by subject, flat...',
   canWrite: () => true,

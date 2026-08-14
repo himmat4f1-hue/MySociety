@@ -29,13 +29,33 @@ const ModuleListPage = ({ config }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [dynamicOptions, setDynamicOptions] = useState({}); // { [category]: [...values] } from Settings-configured lists
 
   const limit = 10;
+
+  // "Settings" (#4) - filters/formFields can use `optionsSource: 'petTypes'`
+  // instead of (or alongside) a static `options` array, to pull the allowed
+  // values from Settings > Dropdown Lists instead of a hardcoded list.
+  // Fetched once per unique category actually used on this page.
+  useEffect(() => {
+    const categories = new Set();
+    (config.filters || []).forEach((f) => f.optionsSource && categories.add(f.optionsSource));
+    (config.formFields || []).forEach((f) => f.optionsSource && categories.add(f.optionsSource));
+    categories.forEach((cat) => {
+      api
+        .get(`/config-lists/values/${cat}`)
+        .then((res) => setDynamicOptions((prev) => ({ ...prev, [cat]: res.data.values })))
+        .catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.endpoint]);
+
+  const resolveOptions = (field) => (field.optionsSource && dynamicOptions[field.optionsSource]?.length ? dynamicOptions[field.optionsSource] : field.options || []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, limit, search, ...filterValues };
+      const params = { page, limit, search, ...config.fixedParams, ...filterValues };
       const res = await api.get(config.endpoint, { params });
       setData(res.data.data);
       setTotal(res.data.total);
@@ -60,7 +80,7 @@ const ModuleListPage = ({ config }) => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { search, ...filterValues, page: 1, limit: 10000 };
+      const params = { search, ...config.fixedParams, ...filterValues, page: 1, limit: 10000 };
       const res = await api.get(config.endpoint, { params });
       const rows = res.data.data || [];
       downloadCsv(
@@ -93,10 +113,15 @@ const ModuleListPage = ({ config }) => {
   };
 
   const handleSubmit = async (values) => {
+    // fixedParams (e.g. { type: 'Celebration' } on the Celebration & Donation
+    // page, which reuses the Funds endpoint pre-scoped to one type) are
+    // merged into new records so they land in the right bucket automatically
+    // - the person never has to pick "type" themselves.
+    const payload = editingItem ? values : { ...config.fixedParams, ...values };
     if (editingItem) {
-      await api.put(`${config.endpoint}/${editingItem._id}`, values);
+      await api.put(`${config.endpoint}/${editingItem._id}`, payload);
     } else {
-      await api.post(config.endpoint, values);
+      await api.post(config.endpoint, payload);
     }
     fetchData();
   };
@@ -140,7 +165,7 @@ const ModuleListPage = ({ config }) => {
                 }}
               >
                 <option value="">{f.label}</option>
-                {f.options.map((opt) => (
+                {resolveOptions(f).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
@@ -241,7 +266,7 @@ const ModuleListPage = ({ config }) => {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           onSubmit={handleSubmit}
-          fields={config.formFields}
+          fields={config.formFields.map((f) => (f.optionsSource ? { ...f, options: resolveOptions(f) } : f))}
           initialValues={editingItem}
           title={editingItem ? `Edit ${config.title}` : `Add ${config.title}`}
         />

@@ -73,6 +73,7 @@ app.use('/api/support-tickets', require('./routes/supportTicketRoutes'));
 app.use('/api/legal-compliance', require('./routes/legalComplianceRoutes'));
 app.use('/api/audit-log', require('./routes/activityLogRoutes'));
 app.use('/api/utility-readings', require('./routes/utilityReadingRoutes'));
+app.use('/api/config-lists', require('./routes/configListRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);
