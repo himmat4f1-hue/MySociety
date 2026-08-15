@@ -43,6 +43,14 @@ const MeetingAttendance = sequelize.define('MeetingAttendance', {
     allowNull: true,
     defaultValue: DataTypes.NOW,
   },
+  // Set when this person clicks "Exit from Meeting". Attendance itself is
+  // NOT removed (they're still counted for quorum) - this only tracks that
+  // they've left the live session, so the "Exit from Meeting" button can
+  // stay hidden if they open the meeting again afterwards.
+  exitedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   indexes: [

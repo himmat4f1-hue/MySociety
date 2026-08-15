@@ -88,7 +88,7 @@ const AgendaItems = () => {
         ) : (
           items.map((item) => {
             const windowStatus = votingWindowStatus(item);
-            const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }];
+            const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }];
             return (
               <div key={item._id} className="card">
                 <div className="flex items-start justify-between flex-wrap gap-3">

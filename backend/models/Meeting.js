@@ -36,6 +36,15 @@ const Meeting = sequelize.define('Meeting', {
     allowNull: true,
     defaultValue: '',
   },
+  // "Description (Optional)" field on the Schedule Meeting modal's
+  // "1. Meeting Information" tab - shown on the meeting detail card
+  // alongside Type, so it needed its own column (the free-text `agenda`
+  // field below is a legacy summary blob, not this).
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    defaultValue: '',
+  },
   agenda: {
     type: DataTypes.TEXT,
     allowNull: true,

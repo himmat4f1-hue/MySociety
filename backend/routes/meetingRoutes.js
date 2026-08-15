@@ -171,12 +171,17 @@ router.post(
 
 // @route POST /api/meetings/:id/exit - "Exit from Meeting" - a joined
 // person's own UI action to leave the live view. Does NOT remove their
-// attendance record (they're still counted as having joined/attended) -
-// this just acknowledges they've left the session.
+// attendance record (they're still counted as having joined/attended for
+// quorum) - it just stamps exitedAt, so re-opening this meeting later won't
+// show the "Exit from Meeting" button again.
 router.post(
   '/:id/exit',
   protect,
   asyncHandler(async (req, res) => {
+    const attendance = await MeetingAttendance.findOne({ where: { meeting: req.params.id, user: req.user.id } });
+    if (attendance && !attendance.exitedAt) {
+      await attendance.update({ exitedAt: new Date() });
+    }
     res.json({ message: 'Left the meeting view. Your attendance is still recorded.' });
   })
 );
@@ -201,7 +206,7 @@ router.get(
     ]);
 
     const agendaItems = agendaItemsRaw.map((item) => {
-      const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }];
+      const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }];
       const leading = options.reduce((best, o) => (o.votes > (best?.votes || -1) ? o : best), null);
       return { ...item.toJSON(), voteOptions: options, decision: leading };
     });
@@ -213,6 +218,7 @@ router.get(
       ...meeting.toJSON(),
       agendaItems,
       hasJoined: !!myAttendance,
+      hasExited: !!(myAttendance && myAttendance.exitedAt),
       attendance: {
         totalMembers: quorum.totalMembers,
         joinedMembers,

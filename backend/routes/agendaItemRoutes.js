@@ -44,7 +44,7 @@ router.post(
     }
 
     const { optionLabel } = req.body;
-    const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }];
+    const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }];
     const chosen = options.find((o) => o.label === optionLabel);
     if (!chosen) {
       return res.status(400).json({ message: `optionLabel must be one of: ${options.map((o) => o.label).join(', ')}` });
@@ -67,6 +67,36 @@ router.post(
     await item.update({ voters: updatedVoters, noOfVotes: updatedVoters.length, voteOptions: updatedOptions });
 
     res.json({ noOfVotes: updatedVoters.length, voteOptions: updatedOptions });
+  })
+);
+
+// @route POST /api/agenda-items/:id/options - Secretary adds a custom vote
+// option to this agenda item (the "Add Option" button replacing the old
+// static "Options" column). The typed label just gets appended to
+// voteOptions with votes:0, and immediately becomes selectable in every
+// voter's dropdown alongside the default Cancel/Reject/Approve.
+router.post(
+  '/:id/options',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const item = await AgendaItem.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!item) return res.status(404).json({ message: 'Not found' });
+
+    const label = (req.body.label || '').trim();
+    if (!label) return res.status(400).json({ message: 'Option text is required.' });
+
+    const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }];
+    if (options.some((o) => o.label.toLowerCase() === label.toLowerCase())) {
+      return res.status(400).json({ message: 'This option already exists for this agenda item.' });
+    }
+
+    // New array (not a push onto the existing one) - see the note above on
+    // JSONB change-detection for why this matters.
+    const updatedOptions = [...options.map((o) => ({ ...o })), { label, votes: 0 }];
+    await item.update({ voteOptions: updatedOptions });
+
+    res.json({ voteOptions: updatedOptions });
   })
 );
 

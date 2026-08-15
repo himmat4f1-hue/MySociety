@@ -4,6 +4,8 @@ import {
   Clock,
   MapPin,
   Flag,
+  FileText,
+  Tag,
   ListChecks,
   PlayCircle,
   XCircle,
@@ -14,6 +16,10 @@ import {
   Plus,
   Hourglass,
   X,
+  Pencil,
+  Trash2,
+  GripVertical,
+  Check,
 } from 'lucide-react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
@@ -52,6 +58,62 @@ const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy }) => {
         className="btn-primary text-xs px-2 py-1 flex items-center gap-1 disabled:opacity-50 shrink-0"
       >
         {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} Vote
+      </button>
+    </div>
+  );
+};
+
+// "Add Option" cell (#4) - replaces the old static "Options" column. Shows a
+// button that flips into a small textbox; whatever gets typed is posted as a
+// brand new vote option for that agenda item and immediately becomes
+// selectable in every voter's dropdown (default options stay Cancel /
+// Reject / Approve).
+const AddOptionCell = ({ agendaId, canManage, onAdded }) => {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (!canManage) return <span className="text-slate-300">—</span>;
+
+  const submit = async () => {
+    const text = label.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      await api.post(`/agenda-items/${agendaId}/options`, { label: text });
+      setLabel('');
+      setOpen(false);
+      await onAdded();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not add option.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="btn-secondary text-xs px-2 py-1 flex items-center gap-1">
+        <Plus size={11} /> Add Option
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        className="input py-1 text-xs w-28"
+        placeholder="Option text"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), submit())}
+      />
+      <button disabled={busy} onClick={submit} className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50">
+        {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
+      </button>
+      <button onClick={() => { setOpen(false); setLabel(''); }} className="text-slate-400 hover:text-red-500">
+        <X size={14} />
       </button>
     </div>
   );
@@ -109,7 +171,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
     );
   }
 
-  const { attendance, agendaItems, joiners, hasJoined, status } = detail;
+  const { attendance, agendaItems, joiners, hasJoined, hasExited, status } = detail;
   const isGeneral = detail.type !== 'Committee';
   const relevantJoined = isGeneral ? attendance.joinedMembers : attendance.joinedManagement;
   const relevantRequired = isGeneral ? attendance.minRequiredMembers : attendance.minRequiredManagement;
@@ -128,17 +190,28 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
+        {/* Date/Venue/Priority/Type/Description (#3) - all five stay visible
+            from "Start Attendance" right through to the meeting closing, not
+            just at the Upcoming/schedule stage. */}
         <div className="card bg-slate-50 border-0">
           <div className="space-y-2 text-sm">
             <p className="flex items-center gap-2 text-slate-600">
-              <Clock size={14} className="text-slate-400" /> {fmtDateTime(detail.date)} {detail.time && `· ${detail.time}`}
+              <Clock size={14} className="text-slate-400 shrink-0" /> {fmtDateTime(detail.date)} {detail.time && `· ${detail.time}`}
             </p>
             <p className="flex items-center gap-2 text-slate-600">
-              <MapPin size={14} className="text-slate-400" /> {detail.location || '—'}
+              <MapPin size={14} className="text-slate-400 shrink-0" /> {detail.location || '—'}
             </p>
             <p className="flex items-center gap-2 text-slate-600">
-              <Flag size={14} className="text-slate-400" /> {detail.priority || 'Medium'}
+              <Flag size={14} className="text-slate-400 shrink-0" /> {detail.priority || 'Medium'}
             </p>
+            <p className="flex items-center gap-2 text-slate-600">
+              <Tag size={14} className="text-slate-400 shrink-0" /> {detail.type === 'Committee' ? 'Committee (Management)' : 'General (Members)'}
+            </p>
+            {detail.description && (
+              <p className="flex items-start gap-2 text-slate-600">
+                <FileText size={14} className="text-slate-400 shrink-0 mt-0.5" /> <span>{detail.description}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -199,7 +272,8 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             <tr className="text-slate-400 text-left border-b border-slate-100">
               <th className="font-medium pb-1.5 w-8">Sr.</th>
               <th className="font-medium pb-1.5">Agenda</th>
-              <th className="font-medium pb-1.5">Options</th>
+              {/* "Options" column (#4) replaced with "Add Option" */}
+              <th className="font-medium pb-1.5">Add Option</th>
               <th className="font-medium pb-1.5">Vote</th>
               <th className="font-medium pb-1.5">Decision</th>
             </tr>
@@ -209,7 +283,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
               <tr key={a._id} className="border-b border-slate-50 last:border-0">
                 <td className="py-2 text-slate-500">{i + 1}</td>
                 <td className="py-2 text-slate-700">{a.agenda}</td>
-                <td className="py-2 text-slate-500 text-xs">{a.voteOptions.map((o) => o.label).join(' / ')}</td>
+                <td className="py-2"><AddOptionCell agendaId={a._id} canManage={canManage} onAdded={load} /></td>
                 <td className="py-2">
                   <OptionSelectVote item={a} canVote={canVote && status === 'In Progress'} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} />
                 </td>
@@ -228,50 +302,43 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
         </table>
       )}
 
+      {/* Action buttons - Secretary controls (Start/Stop/Cancel) are shown
+          purely based on `status`, independent of whether *this* viewer has
+          joined; the participant's own Add Me / Exit action is a separate
+          block driven by hasJoined/hasExited (#2 fix: once hasExited is
+          true, neither button renders again for this person). */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {status === 'Upcoming' && canManage && (
-          <>
-            <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/start-attendance`))} className="btn-primary flex items-center gap-1.5 disabled:opacity-60">
-              <PlayCircle size={15} /> Start Attendance
-            </button>
-            <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/cancel`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
-              <XCircle size={15} /> Cancel Meeting
-            </button>
-          </>
+          <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/start-attendance`))} className="btn-primary flex items-center gap-1.5 disabled:opacity-60">
+            <PlayCircle size={15} /> Start Attendance
+          </button>
+        )}
+
+        {status === 'In Progress' && canManage && (
+          <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/stop`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
+            <StopCircle size={15} /> Stop Meeting
+          </button>
+        )}
+
+        {['Upcoming', 'In Progress'].includes(status) && canManage && (
+          <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/cancel`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
+            <XCircle size={15} /> Cancel Meeting
+          </button>
         )}
 
         {status === 'In Progress' && !hasJoined && (
-          <>
-            <button disabled={busy} onClick={() => act(() => api.post(`/meetings/${meeting._id}/add-me`))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />} Add Me
-            </button>
-            {canManage && (
-              <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/cancel`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
-                <XCircle size={15} /> Cancel Meeting
-              </button>
-            )}
-          </>
+          <button disabled={busy} onClick={() => act(() => api.post(`/meetings/${meeting._id}/add-me`))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />} Add Me
+          </button>
         )}
 
-        {status === 'In Progress' && hasJoined && (
-          <>
-            {canManage && (
-              <>
-                <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/stop`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
-                  <StopCircle size={15} /> Stop Meeting
-                </button>
-                <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/cancel`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
-                  <XCircle size={15} /> Cancel Meeting
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => act(() => api.post(`/meetings/${meeting._id}/exit`), false).then(onClose)}
-              className="btn-secondary flex items-center gap-1.5"
-            >
-              <LogOut size={15} /> Exit from Meeting
-            </button>
-          </>
+        {status === 'In Progress' && hasJoined && !hasExited && (
+          <button
+            onClick={() => act(() => api.post(`/meetings/${meeting._id}/exit`), false).then(onClose)}
+            className="btn-secondary flex items-center gap-1.5"
+          >
+            <LogOut size={15} /> Exit from Meeting
+          </button>
         )}
       </div>
 
@@ -317,20 +384,35 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   );
 };
 
-// "Add Agenda" flow (#1) - instead of one free-text "agenda summary" blob,
-// the Secretary adds structured agenda items one at a time (each becomes its
-// own real AgendaItem row, with its own voting later) right in this modal.
+// Schedule Meeting modal (#1) - now a 2-tab wizard matching the mockup:
+// Tab 1 "Meeting Information" (title/type/priority/date/time/venue/
+// description), Tab 2 "Add Agenda" (add/edit/delete/drag-reorder agenda
+// items). Both tabs share the same Cancel/Save - nothing is actually
+// created until Save is pressed on either tab.
+const TABS_META = [
+  { id: 1, label: '1. Meeting Information' },
+  { id: 2, label: '2. Add Agenda' },
+];
+
+const MAX_DESCRIPTION = 500;
+
 const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
-  const [values, setValues] = useState({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '' });
-  const [agendaList, setAgendaList] = useState([]);
+  const [tab, setTab] = useState(1);
+  const [values, setValues] = useState({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '', description: '' });
+  const [agendaList, setAgendaList] = useState([]); // [{ text }]
   const [agendaDraft, setAgendaDraft] = useState('');
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [dragIdx, setDragIdx] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setValues({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '' });
+      setTab(1);
+      setValues({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '', description: '' });
       setAgendaList([]);
       setAgendaDraft('');
+      setEditingIdx(null);
     }
   }, [open]);
 
@@ -347,6 +429,31 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
 
   const removeAgenda = (idx) => setAgendaList(agendaList.filter((_, i) => i !== idx));
 
+  const startEdit = (idx) => {
+    setEditingIdx(idx);
+    setEditingText(agendaList[idx]);
+  };
+
+  const saveEdit = (idx) => {
+    const text = editingText.trim();
+    if (!text) return;
+    setAgendaList(agendaList.map((a, i) => (i === idx ? text : a)));
+    setEditingIdx(null);
+  };
+
+  // Drag-to-reorder (#1's "You can reorder agenda items by dragging them up
+  // or down" note) - plain HTML5 drag events, no extra library needed.
+  const onDragStart = (idx) => setDragIdx(idx);
+  const onDragOver = (e) => e.preventDefault();
+  const onDrop = (idx) => {
+    if (dragIdx === null || dragIdx === idx) return;
+    const next = [...agendaList];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    setAgendaList(next);
+    setDragIdx(null);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -361,78 +468,153 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSave} className="p-5 space-y-4">
+        <div className="flex items-center gap-2 px-5 pt-5">
+          <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
+            <CalendarDays size={16} />
+          </div>
           <h3 className="text-lg font-semibold text-slate-800">Schedule Meeting</h3>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
-            <input className="input" required value={values.title} onChange={(e) => set('title', e.target.value)} />
-          </div>
+        {/* Tabstrip (#1) */}
+        <div className="flex border-b border-slate-200 mt-4 px-5">
+          {TABS_META.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === t.id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSave} className="p-5 space-y-4">
+          {tab === 1 && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
+                <input className="input" required value={values.title} onChange={(e) => set('title', e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Type *</label>
+                  <select className="input" value={values.type} onChange={(e) => set('type', e.target.value)}>
+                    <option value="General">General (Members)</option>
+                    <option value="Committee">Committee (Management)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Priority *</label>
+                  <select className="input" value={values.priority} onChange={(e) => set('priority', e.target.value)}>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
+                  <input type="date" className="input" required value={values.date} onChange={(e) => set('date', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Time (e.g. 07:00 PM) *</label>
+                  <input className="input" value={values.time} onChange={(e) => set('time', e.target.value)} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Venue *</label>
+                <input className="input" value={values.location} onChange={(e) => set('location', e.target.value)} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  maxLength={MAX_DESCRIPTION}
+                  placeholder="Enter meeting description..."
+                  value={values.description}
+                  onChange={(e) => set('description', e.target.value)}
+                />
+                <p className="text-right text-xs text-slate-400 mt-0.5">{values.description.length} / {MAX_DESCRIPTION}</p>
+              </div>
+            </>
+          )}
+
+          {tab === 2 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-              <select className="input" value={values.type} onChange={(e) => set('type', e.target.value)}>
-                <option value="General">General (Members)</option>
-                <option value="Committee">Committee (Management)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
-              <select className="input" value={values.priority} onChange={(e) => set('priority', e.target.value)}>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
-          </div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Agenda Items</label>
+              <div className="flex gap-2">
+                <input
+                  className="input"
+                  placeholder="e.g. Maintenance Charge Revision"
+                  value={agendaDraft}
+                  onChange={(e) => setAgendaDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgenda())}
+                />
+                <button type="button" onClick={addAgenda} className="btn-secondary px-3 shrink-0 flex items-center gap-1">
+                  <Plus size={15} /> Add Agenda
+                </button>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
-              <input type="date" className="input" required value={values.date} onChange={(e) => set('date', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Time (e.g. 07:00 PM)</label>
-              <input className="input" value={values.time} onChange={(e) => set('time', e.target.value)} />
-            </div>
-          </div>
+              {agendaList.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {agendaList.map((a, i) => (
+                    <li
+                      key={i}
+                      draggable
+                      onDragStart={() => onDragStart(i)}
+                      onDragOver={onDragOver}
+                      onDrop={() => onDrop(i)}
+                      className="flex items-center justify-between bg-slate-50 rounded-lg px-2 py-1.5 text-sm cursor-grab active:cursor-grabbing"
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <GripVertical size={14} className="text-slate-300 shrink-0" />
+                        {editingIdx === i ? (
+                          <input
+                            autoFocus
+                            className="input py-1 text-sm"
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), saveEdit(i))}
+                          />
+                        ) : (
+                          <span className="text-slate-700 truncate">
+                            {i + 1}. {a}
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-2 shrink-0 ml-2">
+                        {editingIdx === i ? (
+                          <button type="button" onClick={() => saveEdit(i)} className="text-emerald-600 hover:text-emerald-800">
+                            <Check size={14} />
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => startEdit(i)} className="text-blue-500 hover:text-blue-700">
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        <button type="button" onClick={() => removeAgenda(i)} className="text-red-500 hover:text-red-700">
+                          <Trash2 size={14} />
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Venue</label>
-            <input className="input" value={values.location} onChange={(e) => set('location', e.target.value)} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Agenda Items</label>
-            <div className="flex gap-2">
-              <input
-                className="input"
-                placeholder="e.g. Maintenance Charge Revision"
-                value={agendaDraft}
-                onChange={(e) => setAgendaDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgenda())}
-              />
-              <button type="button" onClick={addAgenda} className="btn-secondary px-3 shrink-0 flex items-center gap-1">
-                <Plus size={15} /> Add Agenda
-              </button>
+              {agendaList.length > 0 && (
+                <p className="text-xs text-slate-400 mt-2">You can reorder agenda items by dragging them up or down.</p>
+              )}
             </div>
-
-            {agendaList.length > 0 && (
-              <ul className="mt-2 space-y-1">
-                {agendaList.map((a, i) => (
-                  <li key={i} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-1.5 text-sm">
-                    <span className="text-slate-700">
-                      {i + 1}. {a}
-                    </span>
-                    <button type="button" onClick={() => removeAgenda(i)} className="text-slate-400 hover:text-red-500">
-                      <X size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">

@@ -56,7 +56,8 @@ const AgendaItem = sequelize.define('AgendaItem', {
   // "Agenda Voting Mechanism" (#33) - Secretary sets a voting window; the
   // vote/select-account panels are only active inside it (enforced in the
   // route, not just the UI). voteOptions is an array of
-  // {label, votes} - always includes a default "Reject" option per spec #33.
+  // {label, votes} - always includes the default Cancel/Reject/Approve set;
+  // the Secretary can add further custom options via POST /:id/options.
   votingStartAt: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -67,7 +68,7 @@ const AgendaItem = sequelize.define('AgendaItem', {
   },
   voteOptions: {
     type: DataTypes.JSONB,
-    defaultValue: [{ label: 'Approve', votes: 0 }, { label: 'Reject', votes: 0 }],
+    defaultValue: [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }],
   },
 }, {
   timestamps: true,
