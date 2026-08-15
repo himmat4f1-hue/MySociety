@@ -34,6 +34,13 @@ const Transaction = sequelize.define('Transaction', {
     allowNull: true,
     defaultValue: '',
   },
+  // FK -> Fund. Set only for collections/expenses entered against a specific
+  // Fund/Celebration via the Celebration & Donation wizard (panels 2 & 3);
+  // left null for ordinary Finance-module transactions.
+  fund: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
   date: {
     type: DataTypes.DATE,
     allowNull: true,
