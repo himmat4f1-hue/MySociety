@@ -63,19 +63,6 @@ const Meeting = sequelize.define('Meeting', {
     type: DataTypes.ENUM('High', 'Medium', 'Low'),
     defaultValue: 'Medium',
   },
-  // Quorum - minimum joiners required before voting is meaningful. Members =
-  // resident/tenant headcount (relevant for General meetings); Management =
-  // secretary/chairman/treasurer/committee_member headcount (relevant for
-  // Committee meetings). Both are shown, but only the one matching this
-  // meeting's `type` actually gates the "Please wait" state.
-  minRequiredMembers: {
-    type: DataTypes.INTEGER,
-    defaultValue: 1,
-  },
-  minRequiredManagement: {
-    type: DataTypes.INTEGER,
-    defaultValue: 1,
-  },
 }, {
   timestamps: true,
 });

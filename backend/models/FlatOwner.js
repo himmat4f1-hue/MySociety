@@ -63,6 +63,10 @@ const FlatOwner = sequelize.define('FlatOwner', {
     allowNull: true,
     defaultValue: '',
   },
+  photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   // FK -> User (linked login account, if any)
   user: {
     type: DataTypes.UUID,

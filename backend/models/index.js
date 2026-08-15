@@ -65,6 +65,7 @@ const SupportTicket = require('./SupportTicket');
 const LegalCompliance = require('./LegalCompliance');
 const UtilityReading = require('./UtilityReading');
 const ConfigList = require('./ConfigList');
+const MeetingSettings = require('./MeetingSettings');
 
 // ============================================
 // EXPORT ALL MODELS AND SEQUELIZE INSTANCE
@@ -121,4 +122,5 @@ module.exports = {
   LegalCompliance,
   UtilityReading,
   ConfigList,
+  MeetingSettings,
 };

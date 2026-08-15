@@ -50,6 +50,10 @@ const Amenity = sequelize.define('Amenity', {
     allowNull: true,
     defaultValue: 0,
   },
+  photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   // array of {resident, residentName, date, fromTime, toTime, status}
   bookings: {
     type: DataTypes.JSONB,

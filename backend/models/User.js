@@ -36,6 +36,12 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('owner', 'tenant'),
     allowNull: true,
   },
+  // Profile photo - shown next to their name anywhere they appear in a list
+  // (Management List, role checklists, etc.)
+  photo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   flatNo: {
     type: DataTypes.STRING,
     allowNull: true,
