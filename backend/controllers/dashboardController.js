@@ -206,9 +206,10 @@ const getSecretaryOverview = asyncHandler(async (req, res) => {
   const meetingsWithAgendaCount = upcomingMeetings.map((m) => ({ ...m.toJSON(), agendaCount: agendaCountByMeeting.get(m.id) || 0 }));
 
   const managementUserIds = [...new Set(management.map((m) => m.user))];
-  const managementUsers = await User.findAll({ where: { id: { [Op.in]: managementUserIds } }, attributes: ['id', 'name'] });
+  const managementUsers = await User.findAll({ where: { id: { [Op.in]: managementUserIds } }, attributes: ['id', 'name', 'photo'] });
   const nameById = new Map(managementUsers.map((u) => [u.id, u.name]));
-  const managementList = management.map((m) => ({ role: m.role, name: nameById.get(m.user) || '—' }));
+  const photoById = new Map(managementUsers.map((u) => [u.id, u.photo]));
+  const managementList = management.map((m) => ({ role: m.role, name: nameById.get(m.user) || '—', photo: photoById.get(m.user) || null }));
 
   // "Society Fund" (required funds like corpus/maintenance/sinking) vs
   // "Celebration/Donation" (festival/event collections) are shown as two

@@ -27,6 +27,7 @@ const seedLargeSociety = async (models) => {
     Visitor, Complaint, Maintenance, Invoice, Transaction, Meeting, AgendaItem, MeetingAttendance,
     Amenity, AmenityUsageLog, Lease, GatePass, Task, Supply, Notice, Poll, CommitteeVote, ManagementVote,
     Rule, ServiceProviderContact, ParkingAllotment, RoleChecklist,
+    InventoryItem, InsurancePolicy, SupportTicket, Feedback, UtilityReading,
   } = models;
 
   console.log('\n=== Seeding large-scale test society (Sunrise Heights, 100 flats, 1 year of history) ===');
@@ -490,11 +491,108 @@ const seedLargeSociety = async (models) => {
   await ParkingAllotment.bulkCreate(parkingDocs);
 
   await RoleChecklist.bulkCreate([
-    { society: sid, role: 'Chairman', responsibilities: 'Overall governance, chairs meetings, final decision-making authority.' },
-    { society: sid, role: 'Secretary', responsibilities: 'Day-to-day administration, notices, meeting coordination.' },
-    { society: sid, role: 'Treasurer', responsibilities: 'Funds, investments, budget oversight.' },
-    { society: sid, role: 'Committee Member', responsibilities: 'Represents residents, votes on escalated matters.' },
+    {
+      society: sid,
+      role: 'chairman',
+      items: [
+        { id: 'c1', text: 'Chair monthly meetings', done: true },
+        { id: 'c2', text: 'Approve annual budget', done: false },
+        { id: 'c3', text: 'Review Secretary\'s monthly report', done: true },
+      ],
+    },
+    {
+      society: sid,
+      role: 'secretary',
+      items: [
+        { id: 's1', text: 'Publish meeting minutes within 3 days', done: true },
+        { id: 's2', text: 'Respond to member complaints within 48 hours', done: true },
+        { id: 's3', text: 'Renew society insurance policy', done: false },
+        { id: 's4', text: 'Coordinate with vendors for AMC renewals', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'treasurer',
+      items: [
+        { id: 't1', text: 'Reconcile bank statements monthly', done: true },
+        { id: 't2', text: 'Present financial statements at AGM', done: false },
+        { id: 't3', text: 'Follow up on overdue maintenance dues', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'committee_member',
+      items: [
+        { id: 'cm1', text: 'Attend at least 75% of meetings', done: true },
+        { id: 'cm2', text: 'Represent resident concerns to management', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'housekeeping',
+      items: [
+        { id: 'h1', text: 'Open windows to ventilate common areas', done: true },
+        { id: 'h2', text: 'Clean and wipe all common-area furniture', done: true },
+        { id: 'h3', text: 'Vacuum the lobby floor', done: false },
+        { id: 'h4', text: 'Clean mirrors and glass surfaces', done: false },
+        { id: 'h5', text: 'Replace used toiletries and supplies', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'security',
+      items: [
+        { id: 'sec1', text: 'Log all visitor entries and exits', done: true },
+        { id: 'sec2', text: 'Check CCTV footage at shift start', done: true },
+        { id: 'sec3', text: 'Conduct perimeter round every 2 hours', done: false },
+      ],
+    },
   ]);
+
+  console.log('Creating inventory, insurance, support tickets, feedback, utility readings...');
+  await InventoryItem.bulkCreate([
+    { society: sid, itemName: 'Fire Extinguisher - Tower A', category: 'Fire Safety', location: 'Tower A Lobby', status: 'Working', installationDate: daysAgo(400), nextServiceDue: daysFromNow(60) },
+    { society: sid, itemName: 'CCTV Camera - Main Gate', category: 'Security', location: 'Main Gate', status: 'Working', installationDate: daysAgo(300) },
+    { society: sid, itemName: 'Diesel Generator', category: 'Electrical', location: 'Basement', status: 'Needs Service', installationDate: daysAgo(600), nextServiceDue: daysAgo(-5) },
+    { society: sid, itemName: 'Water Pump - Tower B', category: 'Plumbing', location: 'Tower B Terrace', status: 'Working' },
+    { society: sid, itemName: 'CCTV Camera - Parking', category: 'Security', location: 'Parking Area', status: 'Out of Order', installationDate: daysAgo(500) },
+  ]);
+  await InsurancePolicy.bulkCreate([
+    { society: sid, policyType: 'Fire', provider: 'HDFC Ergo', policyNumber: `FIRE-${randomInt(1000, 9999)}`, coverageAmount: 15000000, premiumAmount: 95000, policyStart: daysAgo(200), policyEnd: daysFromNow(165), status: 'Active' },
+    { society: sid, policyType: 'Public Liability', provider: 'ICICI Lombard', policyNumber: `PL-${randomInt(1000, 9999)}`, coverageAmount: 5000000, premiumAmount: 32000, policyStart: daysAgo(200), policyEnd: daysFromNow(165), status: 'Active' },
+    { society: sid, policyType: 'Burglary', provider: 'New India Assurance', policyNumber: `BUR-${randomInt(1000, 9999)}`, coverageAmount: 2000000, premiumAmount: 12000, policyStart: daysAgo(500), policyEnd: daysAgo(135), status: 'Expired' },
+  ]);
+  const ticketUsers = occupiedUsers.slice(0, 6);
+  await SupportTicket.bulkCreate(
+    ticketUsers.map(({ user, unit }, i) => ({
+      society: sid,
+      raisedBy: user.id,
+      flatId: unit.flatNo,
+      subject: randomChoice(['App login issue', 'Cannot view invoices', 'Page not loading', 'OTP not received', 'Profile photo upload failing', 'Payment page error']),
+      description: 'Auto-generated seed support ticket for testing.',
+      status: i < 3 ? randomChoice(['Resolved', 'Closed']) : randomChoice(['Open', 'In Progress']),
+      resolvedOn: i < 3 ? daysAgo(randomInt(1, 10)) : null,
+    }))
+  );
+  const feedbackUsers = occupiedUsers.slice(0, 15);
+  await Feedback.bulkCreate(
+    feedbackUsers.map(({ user, unit }) => ({
+      society: sid,
+      submittedBy: user.id,
+      flatId: unit.flatNo,
+      category: randomChoice(['Management', 'Amenities', 'Meeting', 'Staff', 'Other']),
+      targetName: randomChoice(['Gym', 'Swimming Pool', 'Secretary', 'Security Staff', 'Annual General Meeting']),
+      rating: randomInt(2, 5),
+      comments: randomChoice(['Good overall experience.', 'Could be improved.', 'Very satisfied.', 'Needs attention.', 'Excellent service.']),
+    }))
+  );
+  const utilityDocs = [];
+  for (let m = 0; m < 12; m++) {
+    const month = new Date(daysAgo(m * 30)).toISOString().slice(0, 8) + '01';
+    utilityDocs.push({ society: sid, utilityType: 'Electricity', scope: 'Common Area', month, unitsConsumed: randomInt(3000, 5500), isAbnormal: Math.random() > 0.85 });
+    utilityDocs.push({ society: sid, utilityType: 'Water', scope: 'Common Area', month, unitsConsumed: randomInt(200, 400), isAbnormal: Math.random() > 0.9 });
+  }
+  await UtilityReading.bulkCreate(utilityDocs);
 
   console.log(`Sunrise Heights seeded: 100 flats (${ownerIdx.length} owner, ${tenantIdx.size} tenant, ${vacantIdx.size} vacant, 1 for-sale), 1 year of history across all modules.`);
   console.log('  Secretary   -> secretary@sunriseheights.com / phone 7000000001');

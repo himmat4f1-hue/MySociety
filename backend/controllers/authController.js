@@ -326,8 +326,18 @@ const getMe = asyncHandler(async (req, res) => {
     role: req.role,
     flatId: req.flatId,
     avatar: req.user.avatar,
+    photo: req.user.photo,
     society: { _id: req.society.id, name: req.society.name, slug: req.society.slug, isGuestSandbox: req.society.isGuestSandbox, expiresAt: req.society.expiresAt },
   });
+});
+
+// @desc  Update the logged-in user's own photo (shown next to their name in
+// Management List and anywhere else their profile appears).
+// @route PUT /api/auth/me/photo
+const updateMyPhoto = asyncHandler(async (req, res) => {
+  const { photo } = req.body;
+  await req.user.update({ photo: photo || null });
+  res.json({ photo: req.user.photo });
 });
 
 // @desc  List all distinct society/role/flat combinations ("accounts") the
@@ -396,4 +406,4 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: 'Password reset successful. You can now log in with your new password.' });
 });
 
-module.exports = { registerSociety, loginUser, switchAccount, requestOtp, verifyOtp, guestLogin, getMe, getMySocieties, forgotPassword, resetPassword };
+module.exports = { registerSociety, loginUser, switchAccount, requestOtp, verifyOtp, guestLogin, getMe, updateMyPhoto, getMySocieties, forgotPassword, resetPassword };

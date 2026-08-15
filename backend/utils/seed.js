@@ -51,7 +51,15 @@ const Rule = require('../models/Rule');
 const ServiceProviderContact = require('../models/ServiceProviderContact');
 const ParkingAllotment = require('../models/ParkingAllotment');
 const AmenityUsageLog = require('../models/AmenityUsageLog');
+const InventoryItem = require('../models/InventoryItem');
+const InsurancePolicy = require('../models/InsurancePolicy');
+const SupportTicket = require('../models/SupportTicket');
+const Feedback = require('../models/Feedback');
+const UtilityReading = require('../models/UtilityReading');
+const ActivityLog = require('../models/ActivityLog');
 const seedLargeSociety = require('./seedLargeSociety');
+
+const daysFromNowSeed = (n) => new Date(Date.now() + n * 86400000);
 
 // Core seeding logic. Assumes the database is already connected (does NOT
 // call connectDB() or process.exit() itself) so it's safe to call from a
@@ -101,6 +109,12 @@ const runSeed = async () => {
     ServiceProviderContact.destroy({ where: {}, truncate: true, cascade: true }),
     ParkingAllotment.destroy({ where: {}, truncate: true, cascade: true }),
     AmenityUsageLog.destroy({ where: {}, truncate: true, cascade: true }),
+    InventoryItem.destroy({ where: {}, truncate: true, cascade: true }),
+    InsurancePolicy.destroy({ where: {}, truncate: true, cascade: true }),
+    SupportTicket.destroy({ where: {}, truncate: true, cascade: true }),
+    Feedback.destroy({ where: {}, truncate: true, cascade: true }),
+    UtilityReading.destroy({ where: {}, truncate: true, cascade: true }),
+    ActivityLog.destroy({ where: {}, truncate: true, cascade: true }),
   ]);
 
   console.log('Creating subscription plans...');
@@ -240,6 +254,71 @@ const runSeed = async () => {
     { society: sid, name: 'Tennis Court', type: 'Sports', building: 'Tower C', status: 'Under Maintenance', capacity: 20, used: 0 },
     { society: sid, name: 'Children Play Area', type: 'Recreation', building: 'Tower A', status: 'Available', availability: '6:00 AM - 9:00 PM', capacity: 150, used: 90 },
     { society: sid, name: 'Power Backup', type: 'Utility', building: 'All Towers', status: 'Out of Service', capacity: 0, used: 0 },
+  ]);
+
+  console.log('Creating rules, service providers, parking, amenity usage logs...');
+  await Rule.bulkCreate([
+    { society: sid, category: 'Parking', title: 'One four-wheeler per flat in covered parking', description: 'Additional vehicles must use open/visitor parking.' },
+    { society: sid, category: 'Noise', title: 'Quiet hours 10 PM - 7 AM', description: 'Loud music or construction noise is not permitted during quiet hours.' },
+    { society: sid, category: 'Pets', title: 'Pets must be leashed in common areas', description: 'Pet owners are responsible for cleaning up after their pets.' },
+  ]);
+  await ServiceProviderContact.bulkCreate([
+    { society: sid, serviceType: 'Plumber', name: 'Ganesh Plumbing Works', companyName: 'Ganesh Plumbing Works', phone: '9820011111' },
+    { society: sid, serviceType: 'Electrician', name: 'Suresh Electricals', companyName: 'Suresh Electricals', phone: '9820022222' },
+    { society: sid, serviceType: 'Security Agency', name: 'SecureGuard Services', companyName: 'SecureGuard Pvt Ltd', phone: '9820044444' },
+  ]);
+  await ParkingAllotment.bulkCreate([
+    { society: sid, spotNumber: 'P-001', spotType: 'Covered', flatId: 'A-101', vehicleNumber: 'MH12 AB 1234', status: 'Allotted' },
+    { society: sid, spotNumber: 'P-002', spotType: 'Open', flatId: 'A-102', vehicleNumber: 'MH12 CD 5678', status: 'Allotted' },
+    { society: sid, spotNumber: 'P-003', spotType: 'Basement', status: 'Vacant' },
+    { society: sid, spotNumber: 'P-004', spotType: 'Stilt', status: 'Vacant' },
+  ]);
+  const createdAmenities = await Amenity.findAll({ where: { society: sid } });
+  await AmenityUsageLog.bulkCreate(
+    createdAmenities.slice(0, 3).map((a, i) => ({
+      society: sid,
+      amenity: a.id,
+      user: rahul.id,
+      flatId: 'A-101',
+      date: new Date(Date.now() - i * 5 * 86400000).toISOString().slice(0, 10),
+      fromTime: '06:00 AM',
+      toTime: '07:00 AM',
+      status: 'Completed',
+    }))
+  );
+
+  console.log('Creating a few demo audit log entries (real usage fills this up automatically after this)...');
+  await ActivityLog.bulkCreate([
+    { society: sid, user: secretary.id, userName: secretary.name, userRole: 'secretary', action: 'Create', resourceType: 'Notice', resourceId: null, ipAddress: '192.168.1.10', details: {}, createdAt: daysFromNowSeed(-2) },
+    { society: sid, user: secretary.id, userName: secretary.name, userRole: 'secretary', action: 'Update', resourceType: 'Invoice', resourceId: null, ipAddress: '192.168.1.10', details: { changed: ['status'] }, createdAt: daysFromNowSeed(-1) },
+    { society: sid, user: rahul.id, userName: rahul.name, userRole: 'resident', action: 'Create', resourceType: 'Complaint', resourceId: null, ipAddress: '192.168.1.42', details: {}, createdAt: daysFromNowSeed(-1) },
+  ]);
+
+  console.log('Creating inventory, insurance, support tickets, feedback, utility readings...');
+  await InventoryItem.bulkCreate([
+    { society: sid, itemName: 'Fire Extinguisher - Lobby', category: 'Fire Safety', location: 'Ground Floor Lobby', status: 'Working', installationDate: new Date('2023-01-15'), nextServiceDue: daysFromNowSeed(60) },
+    { society: sid, itemName: 'CCTV Camera - Gate', category: 'Security', location: 'Main Gate', status: 'Working', installationDate: new Date('2023-03-10') },
+    { society: sid, itemName: 'Diesel Generator', category: 'Electrical', location: 'Basement', status: 'Needs Service', installationDate: new Date('2022-06-01'), nextServiceDue: daysFromNowSeed(-5) },
+    { society: sid, itemName: 'Water Pump - Tower A', category: 'Plumbing', location: 'Tower A Terrace', status: 'Working' },
+  ]);
+  await InsurancePolicy.bulkCreate([
+    { society: sid, policyType: 'Fire', provider: 'HDFC Ergo', policyNumber: 'FIRE-2024-001', coverageAmount: 5000000, premiumAmount: 45000, policyStart: new Date('2024-01-01'), policyEnd: daysFromNowSeed(120), status: 'Active' },
+    { society: sid, policyType: 'Public Liability', provider: 'ICICI Lombard', policyNumber: 'PL-2024-002', coverageAmount: 2000000, premiumAmount: 18000, policyStart: new Date('2024-01-01'), policyEnd: daysFromNowSeed(120), status: 'Active' },
+  ]);
+  await SupportTicket.bulkCreate([
+    { society: sid, raisedBy: rahul.id, flatId: 'A-101', subject: 'Cannot upload profile photo', description: 'The app shows an error when I try to upload a photo.', status: 'Open' },
+    { society: sid, raisedBy: priya.id, flatId: 'A-102', subject: 'Login OTP not received', description: 'I did not receive the OTP on my phone during login.', status: 'Resolved', resolvedOn: new Date() },
+  ]);
+  await Feedback.bulkCreate([
+    { society: sid, submittedBy: rahul.id, flatId: 'A-101', category: 'Amenities', targetName: 'Gym', rating: 4, comments: 'Well maintained, could use more equipment.' },
+    { society: sid, submittedBy: priya.id, flatId: 'A-102', category: 'Management', rating: 5, comments: 'Secretary is very responsive.' },
+    { society: sid, submittedBy: neha.id, flatId: 'B-202', category: 'Meeting', targetName: 'Annual General Meeting', rating: 3, comments: 'Meeting ran a bit long.' },
+  ]);
+  await UtilityReading.bulkCreate([
+    { society: sid, utilityType: 'Electricity', scope: 'Common Area', month: '2024-06-01', unitsConsumed: 1250 },
+    { society: sid, utilityType: 'Electricity', scope: 'Common Area', month: '2024-07-01', unitsConsumed: 1420, isAbnormal: true },
+    { society: sid, utilityType: 'Water', scope: 'Common Area', month: '2024-06-01', unitsConsumed: 85 },
+    { society: sid, utilityType: 'Water', scope: 'Common Area', month: '2024-07-01', unitsConsumed: 90 },
   ]);
 
   console.log('Creating documents...');
@@ -394,11 +473,65 @@ const runSeed = async () => {
 
   console.log('Creating role checklist...');
   await RoleChecklist.bulkCreate([
-    { society: sid, role: 'Chairman', responsibilities: 'Overall governance, chairs meetings, final decision-making authority, represents the society externally.' },
-    { society: sid, role: 'Secretary', responsibilities: 'Manages day-to-day administration, maintains records, issues notices, coordinates meetings and agenda.' },
-    { society: sid, role: 'Accountant', responsibilities: 'Maintains financial records, invoices, receipts, prepares financial reports.' },
-    { society: sid, role: 'Treasurer', responsibilities: 'Oversees funds, investments, budget approvals, financial oversight alongside the accountant.' },
-    { society: sid, role: 'Committee Member', responsibilities: 'Represents residents, participates in decision-making, votes on management roles and escalated matters.' },
+    {
+      society: sid,
+      role: 'chairman',
+      items: [
+        { id: 'c1', text: 'Chair monthly meetings', done: true },
+        { id: 'c2', text: 'Approve annual budget', done: false },
+        { id: 'c3', text: 'Represent the society externally', done: true },
+      ],
+    },
+    {
+      society: sid,
+      role: 'secretary',
+      items: [
+        { id: 's1', text: 'Maintain society records', done: true },
+        { id: 's2', text: 'Issue notices for meetings', done: true },
+        { id: 's3', text: 'Coordinate meeting agendas', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'accountant',
+      items: [
+        { id: 'a1', text: 'Maintain financial records', done: true },
+        { id: 'a2', text: 'Issue invoices and receipts', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'treasurer',
+      items: [
+        { id: 't1', text: 'Oversee funds and investments', done: true },
+        { id: 't2', text: 'Approve budget line items', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'committee_member',
+      items: [
+        { id: 'cm1', text: 'Represent resident concerns', done: true },
+        { id: 'cm2', text: 'Vote on escalated matters', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'housekeeping',
+      items: [
+        { id: 'h1', text: 'Open windows to ventilate common areas', done: true },
+        { id: 'h2', text: 'Clean and wipe common-area furniture', done: false },
+        { id: 'h3', text: 'Vacuum the lobby floor', done: false },
+      ],
+    },
+    {
+      society: sid,
+      role: 'security',
+      items: [
+        { id: 'sec1', text: 'Log all visitor entries and exits', done: true },
+        { id: 'sec2', text: 'Check CCTV footage at shift start', done: false },
+      ],
+    },
   ]);
 
   console.log('Creating meeting attendance + agenda items...');
@@ -519,6 +652,7 @@ const runSeed = async () => {
     Visitor, Complaint, Maintenance, Invoice, Transaction, Meeting, AgendaItem, MeetingAttendance,
     Amenity, AmenityUsageLog, Lease, GatePass, Task, Supply, Notice, Poll, CommitteeVote, ManagementVote,
     Rule, ServiceProviderContact, ParkingAllotment, RoleChecklist,
+    InventoryItem, InsurancePolicy, SupportTicket, Feedback, UtilityReading,
   });
 
   return { society: demoSociety.name, largeSociety: largeSocietyResult.society };

@@ -8,6 +8,7 @@ const {
   verifyOtp,
   guestLogin,
   getMe,
+  updateMyPhoto,
   getMySocieties,
   forgotPassword,
   resetPassword,
@@ -23,6 +24,7 @@ router.post('/guest', guestLogin);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/me', protect, getMe);
+router.put('/me/photo', protect, updateMyPhoto);
 router.get('/my-societies', protect, getMySocieties);
 
 module.exports = router;

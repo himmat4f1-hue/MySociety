@@ -4,6 +4,7 @@ const Meeting = require('../models/Meeting');
 const AgendaItem = require('../models/AgendaItem');
 const MeetingAttendance = require('../models/MeetingAttendance');
 const Membership = require('../models/Membership');
+const MeetingSettings = require('../models/MeetingSettings');
 const makeCrudRouter = require('../utils/makeCrudRouter');
 const asyncHandler = require('../utils/asyncHandler');
 const { protect, authorize } = require('../middleware/auth');
@@ -21,6 +22,14 @@ const getQuorumTotals = async (societyId) => {
     Membership.count({ where: { society: societyId, role: { [Op.in]: ALL_MANAGEMENT }, status: 'active' } }),
   ]);
   return { totalMembers, totalManagement };
+};
+
+// Society-wide quorum minimums (Settings page) - same for every meeting,
+// never set per-meeting. Auto-creates a default row (1/1) the first time a
+// society is asked for it, so this never 404s.
+const getQuorumSettings = async (societyId) => {
+  const [row] = await MeetingSettings.findOrCreate({ where: { society: societyId }, defaults: { society: societyId } });
+  return row;
 };
 
 // Attaches "Building No." (derived from flatId's tower-letter prefix, e.g.
@@ -52,6 +61,32 @@ router.get(
     const countByMeeting = new Map(agendaCounts.map((r) => [r.meeting, parseInt(r.count, 10)]));
 
     res.json(meetings.map((m) => ({ ...m.toJSON(), agendaCount: countByMeeting.get(m.id) || 0 })));
+  })
+);
+
+// @route GET /api/meetings/quorum-settings - Settings page reads/writes this
+// (Secretary only for write). One row per society, applies to ALL meetings.
+router.get(
+  '/quorum-settings',
+  protect,
+  asyncHandler(async (req, res) => {
+    const row = await getQuorumSettings(req.societyId);
+    res.json(row);
+  })
+);
+
+router.put(
+  '/quorum-settings',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const row = await getQuorumSettings(req.societyId);
+    const { minRequiredMembers, minRequiredManagement } = req.body;
+    await row.update({
+      minRequiredMembers: minRequiredMembers ?? row.minRequiredMembers,
+      minRequiredManagement: minRequiredManagement ?? row.minRequiredManagement,
+    });
+    res.json(row);
   })
 );
 
@@ -157,10 +192,11 @@ router.get(
     const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
-    const [agendaItemsRaw, attendanceRows, quorum, myAttendance] = await Promise.all([
+    const [agendaItemsRaw, attendanceRows, quorum, quorumSettings, myAttendance] = await Promise.all([
       AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id } }),
       MeetingAttendance.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['checkedInAt', 'ASC']] }),
       getQuorumTotals(req.societyId),
+      getQuorumSettings(req.societyId),
       MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } }),
     ]);
 
@@ -180,10 +216,10 @@ router.get(
       attendance: {
         totalMembers: quorum.totalMembers,
         joinedMembers,
-        minRequiredMembers: meeting.minRequiredMembers,
+        minRequiredMembers: quorumSettings.minRequiredMembers,
         totalManagement: quorum.totalManagement,
         joinedManagement,
-        minRequiredManagement: meeting.minRequiredManagement,
+        minRequiredManagement: quorumSettings.minRequiredManagement,
       },
       joiners: attendanceRows.map((a) => ({
         _id: a.id,
