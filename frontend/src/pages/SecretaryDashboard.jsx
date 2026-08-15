@@ -380,7 +380,18 @@ const SecretaryDashboard = () => {
                 <tbody>
                   {detail.amenities.map((a) => (
                     <tr key={a._id} className="border-b border-slate-50 last:border-0">
-                      <td className="py-1.5 text-slate-700 whitespace-nowrap">{a.name}</td>
+                      <td className="py-1.5 text-slate-700 whitespace-nowrap">
+                        <span className="flex items-center gap-2">
+                          {a.photo ? (
+                            <img src={a.photo} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span className="w-6 h-6 rounded-full bg-rose-50 text-rose-300 flex items-center justify-center shrink-0">
+                              <Dumbbell size={12} />
+                            </span>
+                          )}
+                          {a.name}
+                        </span>
+                      </td>
                       <td className="py-1.5 text-right text-slate-600">{a.capacity ?? 0}</td>
                       <td className="py-1.5 text-right text-slate-600">{a.used ?? 0}</td>
                       <td className="py-1.5 text-right text-slate-600">{a.available ?? 0}</td>
@@ -414,9 +425,13 @@ const SecretaryDashboard = () => {
               {detail.management.map((m, i) => (
                 <div key={`${m.role}-${i}`} className="flex items-center justify-between border-b border-slate-50 py-2 gap-2">
                   <span className="flex items-center gap-2 min-w-0">
-                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
-                      {(m.name || '?').charAt(0).toUpperCase()}
-                    </span>
+                    {m.photo ? (
+                      <img src={m.photo} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
+                        {(m.name || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
                     <span className="text-slate-500 text-sm truncate">{roleLabel(m.role)}</span>
                   </span>
                   <span className="font-medium text-slate-800 text-sm truncate text-right shrink-0">{m.name}</span>

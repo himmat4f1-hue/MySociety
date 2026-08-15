@@ -21,6 +21,7 @@ const config = {
     { key: 'mobileNumber', label: 'Mobile' },
   ],
   formFields: [
+    { name: 'photo', label: 'Photo', type: 'photo' },
     { name: 'flatId', label: 'Flat (Owner ID) e.g. "G 610"', required: true },
     { name: 'building', label: 'Building', required: true },
     { name: 'flatNo', label: 'Flat No.', required: true },

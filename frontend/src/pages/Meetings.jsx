@@ -13,10 +13,10 @@ import {
   Loader2,
   Plus,
   Hourglass,
+  X,
 } from 'lucide-react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
-import FormModal from '../components/FormModal';
 import { useAuth } from '../context/AuthContext';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -317,6 +317,137 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   );
 };
 
+// "Add Agenda" flow (#1) - instead of one free-text "agenda summary" blob,
+// the Secretary adds structured agenda items one at a time (each becomes its
+// own real AgendaItem row, with its own voting later) right in this modal.
+const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
+  const [values, setValues] = useState({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '' });
+  const [agendaList, setAgendaList] = useState([]);
+  const [agendaDraft, setAgendaDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setValues({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '' });
+      setAgendaList([]);
+      setAgendaDraft('');
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const set = (name, v) => setValues((prev) => ({ ...prev, [name]: v }));
+
+  const addAgenda = () => {
+    const text = agendaDraft.trim();
+    if (!text) return;
+    setAgendaList([...agendaList, text]);
+    setAgendaDraft('');
+  };
+
+  const removeAgenda = (idx) => setAgendaList(agendaList.filter((_, i) => i !== idx));
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSubmit({ ...values, agendaList });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <form onSubmit={handleSave} className="p-5 space-y-4">
+          <h3 className="text-lg font-semibold text-slate-800">Schedule Meeting</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
+            <input className="input" required value={values.title} onChange={(e) => set('title', e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+              <select className="input" value={values.type} onChange={(e) => set('type', e.target.value)}>
+                <option value="General">General (Members)</option>
+                <option value="Committee">Committee (Management)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+              <select className="input" value={values.priority} onChange={(e) => set('priority', e.target.value)}>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
+              <input type="date" className="input" required value={values.date} onChange={(e) => set('date', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Time (e.g. 07:00 PM)</label>
+              <input className="input" value={values.time} onChange={(e) => set('time', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Venue</label>
+            <input className="input" value={values.location} onChange={(e) => set('location', e.target.value)} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Agenda Items</label>
+            <div className="flex gap-2">
+              <input
+                className="input"
+                placeholder="e.g. Maintenance Charge Revision"
+                value={agendaDraft}
+                onChange={(e) => setAgendaDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgenda())}
+              />
+              <button type="button" onClick={addAgenda} className="btn-secondary px-3 shrink-0 flex items-center gap-1">
+                <Plus size={15} /> Add Agenda
+              </button>
+            </div>
+
+            {agendaList.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {agendaList.map((a, i) => (
+                  <li key={i} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-1.5 text-sm">
+                    <span className="text-slate-700">
+                      {i + 1}. {a}
+                    </span>
+                    <button type="button" onClick={() => removeAgenda(i)} className="text-slate-400 hover:text-red-500">
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-60 flex items-center gap-1.5">
+              {saving && <Loader2 size={14} className="animate-spin" />} {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const Meetings = () => {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(todayISO());
@@ -343,7 +474,14 @@ const Meetings = () => {
   }, [load]);
 
   const handleCreate = async (values) => {
-    await api.post('/meetings', values);
+    const { agendaList, ...meetingFields } = values;
+    const res = await api.post('/meetings', meetingFields);
+    const newMeetingId = res.data.id;
+    // Create each agenda item added in the "Add Agenda" list, linked to the
+    // meeting just created.
+    for (const agendaText of agendaList) {
+      await api.post('/agenda-items', { meeting: newMeetingId, agenda: agendaText });
+    }
     await load();
   };
 
@@ -393,25 +531,7 @@ const Meetings = () => {
 
       {openMeeting && <MeetingDetail meeting={openMeeting} onClose={() => setOpenMeeting(null)} onChanged={load} user={user} />}
 
-      {canManage && (
-        <FormModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSubmit={handleCreate}
-          title="Schedule Meeting"
-          fields={[
-            { name: 'title', label: 'Title', required: true },
-            { name: 'type', label: 'Type', type: 'select', options: ['General', 'Committee', 'Internal', 'Community'] },
-            { name: 'priority', label: 'Priority', type: 'select', options: ['High', 'Medium', 'Low'] },
-            { name: 'date', label: 'Date', type: 'date', required: true },
-            { name: 'time', label: 'Time (e.g. 07:00 PM)' },
-            { name: 'location', label: 'Venue' },
-            { name: 'agenda', label: 'Overview / Agenda Summary', type: 'textarea' },
-            { name: 'minRequiredMembers', label: 'Minimum Members Required (for quorum)', type: 'number' },
-            { name: 'minRequiredManagement', label: 'Minimum Management Required (for quorum)', type: 'number' },
-          ]}
-        />
-      )}
+      {canManage && <ScheduleMeetingModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleCreate} />}
     </Layout>
   );
 };

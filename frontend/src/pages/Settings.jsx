@@ -1,8 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { ListChecks, Plus, X, Loader2, Save } from 'lucide-react';
+import { ListChecks, Plus, X, Loader2, Save, User as UserIcon, Camera } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+
+const MAX_PHOTO_BYTES = 1.5 * 1024 * 1024;
+
+const MyProfileCard = () => {
+  const { user } = useAuth();
+  const [photo, setPhoto] = useState(user?.photo || null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFile = (file) => {
+    setError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError(`Image is too large (max ${(MAX_PHOTO_BYTES / 1024 / 1024).toFixed(1)}MB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setPhoto(reader.result);
+      setSaving(true);
+      try {
+        await api.put('/auth/me/photo', { photo: reader.result });
+      } catch {
+        setError('Could not save your photo. Please try again.');
+      } finally {
+        setSaving(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="card mb-6">
+      <h3 className="font-semibold text-slate-800 mb-1">My Profile Photo</h3>
+      <p className="text-xs text-slate-400 mb-3">Shown next to your name in the Management List and anywhere else your profile appears.</p>
+      <div className="flex items-center gap-4">
+        {photo ? (
+          <img src={photo} alt="" className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+            <UserIcon size={26} />
+          </div>
+        )}
+        <div>
+          <label className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5">
+            <Camera size={14} /> {saving ? 'Saving...' : 'Change Photo'}
+            <input type="file" accept="image/*" className="hidden" disabled={saving} onChange={(e) => handleFile(e.target.files?.[0])} />
+          </label>
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // The default set of dropdown-list categories a society typically needs.
 // If a category has never been configured, this is what seeds it the first
@@ -114,12 +172,83 @@ const DropdownListCard = ({ category, label, defaults }) => {
   );
 };
 
+const MeetingQuorumCard = ({ canManage }) => {
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    api.get('/meetings/quorum-settings').then((res) => setSettings(res.data));
+  }, []);
+
+  const update = (field, value) => {
+    setSettings((prev) => ({ ...prev, [field]: value }));
+    setDirty(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await api.put('/meetings/quorum-settings', {
+        minRequiredMembers: Number(settings.minRequiredMembers),
+        minRequiredManagement: Number(settings.minRequiredManagement),
+      });
+      setSettings(res.data);
+      setDirty(false);
+    } catch {
+      alert('Could not save quorum settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card mb-6">
+      <h3 className="font-semibold text-slate-800 mb-1">Meeting Quorum</h3>
+      <p className="text-xs text-slate-400 mb-3">Applies to every meeting automatically - not set per-meeting.</p>
+      {!settings ? (
+        <p className="text-sm text-slate-400">Loading...</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Minimum Members Required (General meetings)</label>
+            <input
+              type="number"
+              className="input"
+              disabled={!canManage}
+              value={settings.minRequiredMembers}
+              onChange={(e) => update('minRequiredMembers', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Minimum Management Required (Committee meetings)</label>
+            <input
+              type="number"
+              className="input"
+              disabled={!canManage}
+              value={settings.minRequiredManagement}
+              onChange={(e) => update('minRequiredManagement', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+      {canManage && dirty && (
+        <button onClick={save} disabled={saving} className="btn-primary text-xs mt-3 flex items-center gap-1.5 disabled:opacity-60">
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const Settings = () => {
   const { user } = useAuth();
   const canManage = user?.role === 'secretary';
 
   return (
     <Layout title="Settings" subtitle="Configure dropdown lists used across the app">
+      <MyProfileCard />
+      <MeetingQuorumCard canManage={canManage} />
       <div className="card mb-6">
         <h3 className="font-semibold text-slate-800 mb-1">System Information</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3">
