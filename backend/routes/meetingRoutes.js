@@ -198,7 +198,7 @@ router.get(
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
     const [agendaItemsRaw, attendanceRows, quorum, quorumSettings, myAttendance] = await Promise.all([
-      AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id } }),
+      AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['createdAt', 'ASC']] }),
       MeetingAttendance.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['checkedInAt', 'ASC']] }),
       getQuorumTotals(req.societyId),
       getQuorumSettings(req.societyId),
@@ -206,9 +206,11 @@ router.get(
     ]);
 
     const agendaItems = agendaItemsRaw.map((item) => {
-      const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }];
+      const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject/Cancel', votes: 0 }];
       const leading = options.reduce((best, o) => (o.votes > (best?.votes || -1) ? o : best), null);
-      return { ...item.toJSON(), voteOptions: options, decision: leading };
+      const json = item.toJSON();
+      delete json.voters; // never expose who voted - just whether THIS user has (below)
+      return { ...json, voteOptions: options, decision: leading, hasVoted: (item.voters || []).includes(req.user.id) };
     });
 
     const joinedMembers = attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length;

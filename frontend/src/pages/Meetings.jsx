@@ -15,7 +15,6 @@ import {
   Loader2,
   Plus,
   Hourglass,
-  X,
   Pencil,
   Trash2,
   GripVertical,
@@ -35,7 +34,7 @@ const STATUS_STYLE = {
   Cancelled: 'bg-red-50 text-red-600',
 };
 
-const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy }) => {
+const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted }) => {
   const [choice, setChoice] = useState(item.voteOptions[0]?.label || '');
   if (!hasJoined) {
     return <span className="text-slate-300">—</span>;
@@ -45,45 +44,44 @@ const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy }) => {
   }
   return (
     <div className="flex items-center gap-1.5">
-      <select className="input py-1 text-xs w-24" value={choice} onChange={(e) => setChoice(e.target.value)}>
+      <select disabled={hasVoted} className="input py-1 text-xs w-36 disabled:opacity-60" value={choice} onChange={(e) => setChoice(e.target.value)}>
         {item.voteOptions.map((o) => (
           <option key={o.label} value={o.label}>
-            {o.label}
+            {o.label}(Votes={o.votes || 0})
           </option>
         ))}
       </select>
+      {/* One vote per person - once hasVoted comes back true from the
+          server, this button stays disabled forever for this agenda item,
+          even after a page reload (not just for the current session). */}
       <button
-        disabled={busy}
+        disabled={busy || hasVoted}
         onClick={() => onVote(item._id, choice)}
         className="btn-primary text-xs px-2 py-1 flex items-center gap-1 disabled:opacity-50 shrink-0"
       >
-        {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} Vote
+        {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} {hasVoted ? 'Voted' : 'Vote'}
       </button>
     </div>
   );
 };
 
-// "Add Option" cell (#4) - replaces the old static "Options" column. Shows a
-// button that flips into a small textbox; whatever gets typed is posted as a
-// brand new vote option for that agenda item and immediately becomes
-// selectable in every voter's dropdown (default options stay Cancel /
-// Reject / Approve).
-const AddOptionCell = ({ agendaId, canManage, onAdded }) => {
-  const [open, setOpen] = useState(false);
+// "Add Option" popup (#4 follow-up) - a small modal with a textbox, Save
+// (adds the option, then auto-closes) and Cancel (just closes). Replaces
+// the old inline per-row textbox / separate table column entirely.
+const AddOptionModal = ({ agendaId, onClose, onAdded }) => {
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (!canManage) return <span className="text-slate-300">—</span>;
+  if (!agendaId) return null;
 
-  const submit = async () => {
+  const save = async () => {
     const text = label.trim();
     if (!text) return;
     setBusy(true);
     try {
       await api.post(`/agenda-items/${agendaId}/options`, { label: text });
-      setLabel('');
-      setOpen(false);
       await onAdded();
+      onClose();
     } catch (err) {
       alert(err.response?.data?.message || 'Could not add option.');
     } finally {
@@ -91,30 +89,27 @@ const AddOptionCell = ({ agendaId, canManage, onAdded }) => {
     }
   };
 
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-secondary text-xs px-2 py-1 flex items-center gap-1">
-        <Plus size={11} /> Add Option
-      </button>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-1">
-      <input
-        autoFocus
-        className="input py-1 text-xs w-28"
-        placeholder="Option text"
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), submit())}
-      />
-      <button disabled={busy} onClick={submit} className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50">
-        {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
-      </button>
-      <button onClick={() => { setOpen(false); setLabel(''); }} className="text-slate-400 hover:text-red-500">
-        <X size={14} />
-      </button>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+        <h3 className="text-base font-semibold text-slate-800">Add Vote Option</h3>
+        <input
+          autoFocus
+          className="input"
+          placeholder="e.g. Postpone"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())}
+        />
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary">
+            Cancel
+          </button>
+          <button type="button" disabled={busy} onClick={save} className="btn-primary disabled:opacity-60 flex items-center gap-1.5">
+            {busy && <Loader2 size={14} className="animate-spin" />} Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -123,6 +118,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
   const [votingId, setVotingId] = useState(null);
+  const [optionModalAgenda, setOptionModalAgenda] = useState(null);
 
   const canManage = user?.role === 'secretary';
   const canVote = ['secretary', 'chairman', 'treasurer', 'committee_member'].includes(user?.role);
@@ -272,8 +268,6 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             <tr className="text-slate-400 text-left border-b border-slate-100">
               <th className="font-medium pb-1.5 w-8">Sr.</th>
               <th className="font-medium pb-1.5">Agenda</th>
-              {/* "Options" column (#4) replaced with "Add Option" */}
-              <th className="font-medium pb-1.5">Add Option</th>
               <th className="font-medium pb-1.5">Vote</th>
               <th className="font-medium pb-1.5">Decision</th>
             </tr>
@@ -283,15 +277,19 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
               <tr key={a._id} className="border-b border-slate-50 last:border-0">
                 <td className="py-2 text-slate-500">{i + 1}</td>
                 <td className="py-2 text-slate-700">{a.agenda}</td>
-                <td className="py-2"><AddOptionCell agendaId={a._id} canManage={canManage} onAdded={load} /></td>
                 <td className="py-2">
-                  <OptionSelectVote item={a} canVote={canVote && status === 'In Progress'} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} />
+                  <div className="flex items-center gap-1.5">
+                    <OptionSelectVote item={a} canVote={canVote && status === 'In Progress'} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
+                    {canManage && (
+                      <button onClick={() => setOptionModalAgenda(a._id)} title="Add Option" className="text-slate-400 hover:text-brand-600 shrink-0">
+                        <Plus size={15} />
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="py-2 text-slate-700">
                   {a.decision && a.decision.votes > 0 ? (
-                    <span>
-                      {a.decision.label} <span className="text-slate-400">({a.decision.votes} votes)</span>
-                    </span>
+                    <span>{a.decision.label}(Votes={a.decision.votes})</span>
                   ) : (
                     <span className="text-slate-300">—</span>
                   )}
@@ -380,6 +378,8 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
       <button onClick={onClose} className="text-xs text-slate-400 mt-4">
         Close
       </button>
+
+      <AddOptionModal agendaId={optionModalAgenda} onClose={() => setOptionModalAgenda(null)} onAdded={load} />
     </div>
   );
 };
