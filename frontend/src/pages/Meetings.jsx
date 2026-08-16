@@ -374,6 +374,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
           <Hourglass size={16} className="shrink-0 mt-0.5" />
           <p>
             Minimum required {isGeneral ? 'members' : 'management'} have not yet joined ({relevantJoined}/{relevantRequired}). Voting will unlock, and the meeting can be stopped, once quorum is met.
+            {isGeneral
+              ? ' Management accounts can still join, but only count as witnesses - they do not count toward this quorum.'
+              : ' Member accounts can still join, but only count as witnesses - they do not count toward this quorum.'}
           </p>
         </div>
       )}
@@ -397,7 +400,15 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
                 <td className="py-1.5 text-slate-600">{j.buildingNo}</td>
                 <td className="py-1.5 text-slate-600">{j.flatNo}</td>
                 <td className="py-1.5 text-slate-700">{j.name}</td>
-                <td className="py-1.5 text-slate-500">{j.role}</td>
+                <td className="py-1.5 text-slate-500">
+                  {j.role}
+                  {/* Joined from the category that ISN'T this meeting's
+                      quorum-relevant one (e.g. Management in a General
+                      meeting) - they're still listed, but only as a
+                      witness: not counted toward quorum, not eligible to
+                      vote here. */}
+                  {j.isWitness && <span className="badge bg-slate-100 text-slate-500 ml-1.5">Witness</span>}
+                </td>
               </tr>
             ))}
           </tbody>

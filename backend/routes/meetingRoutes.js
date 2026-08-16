@@ -155,7 +155,10 @@ router.post(
       return res.status(403).json({ message: 'This meeting is not in progress right now.' });
     }
 
-    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } });
+    // Dedupe is per (meeting, user, role) - see the MeetingAttendance model
+    // note: the same login can hold multiple memberships (e.g. Secretary
+    // AND a Resident/Owner of a flat), and each joins independently.
+    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role } });
     if (existing) return res.status(400).json({ message: 'You are already marked present for this meeting.' });
 
     const record = await MeetingAttendance.create({
@@ -179,7 +182,10 @@ router.post(
   '/:id/exit',
   protect,
   asyncHandler(async (req, res) => {
-    const attendance = await MeetingAttendance.findOne({ where: { meeting: req.params.id, user: req.user.id } });
+    // Only exits THIS role's attendance (see model note) - if the same
+    // person is also joined under a different role in this meeting, that
+    // other attendance/session is untouched.
+    const attendance = await MeetingAttendance.findOne({ where: { meeting: req.params.id, user: req.user.id, role: req.role } });
     if (attendance && !attendance.exitedAt) {
       await attendance.update({ exitedAt: new Date() });
     }
@@ -203,7 +209,10 @@ router.get(
       MeetingAttendance.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['checkedInAt', 'ASC']] }),
       getQuorumTotals(req.societyId),
       getQuorumSettings(req.societyId),
-      MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id } }),
+      // hasJoined/hasExited must reflect THIS session's active role, not
+      // just this login - see the model note on why (meeting, user) alone
+      // is wrong when one person holds multiple memberships.
+      MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role } }),
     ]);
 
     const agendaItems = agendaItemsRaw.map((item) => {
@@ -230,13 +239,25 @@ router.get(
         joinedManagement,
         minRequiredManagement: quorumSettings.minRequiredManagement,
       },
-      joiners: attendanceRows.map((a) => ({
-        _id: a.id,
-        buildingNo: buildingFromFlatId(a.flatId),
-        flatNo: a.flatId || '—',
-        name: a.userName || '—',
-        role: ALL_MANAGEMENT.includes(a.role) ? 'Management' : a.role === 'resident' || a.role === 'tenant' ? 'Member' : a.role,
-      })),
+      // A joiner "counts" for quorum only if their role matches THIS
+      // meeting's relevant category (General meeting -> resident/tenant,
+      // Committee meeting -> Management). Anyone who joins from the other
+      // category is still allowed to join and is listed here, but flagged
+      // isWitness so the UI can show them as an "extra witness" rather than
+      // implying they contributed to quorum - matches joinedMembers/
+      // joinedManagement above, which already exclude them from the count.
+      joiners: attendanceRows.map((a) => {
+        const isManagementRole = ALL_MANAGEMENT.includes(a.role);
+        const matchesMeetingCategory = meeting.type === 'Committee' ? isManagementRole : !isManagementRole;
+        return {
+          _id: a.id,
+          buildingNo: buildingFromFlatId(a.flatId),
+          flatNo: a.flatId || '—',
+          name: a.userName || '—',
+          role: isManagementRole ? 'Management' : a.role === 'resident' || a.role === 'tenant' ? 'Member' : a.role,
+          isWitness: !matchesMeetingCategory,
+        };
+      }),
     });
   })
 );
