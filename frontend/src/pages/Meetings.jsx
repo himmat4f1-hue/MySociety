@@ -34,23 +34,34 @@ const STATUS_STYLE = {
   Cancelled: 'bg-red-50 text-red-600',
 };
 
-const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted }) => {
+const MANAGEMENT_ROLES = ['secretary', 'chairman', 'treasurer', 'committee_member'];
+
+// Vote UI for one agenda row - left-to-right: "Add Option" (+, secretary
+// only, passed in as addOptionButton), Vote button, then the option select.
+// canVote here already reflects BOTH the meeting-type voting-rights rule
+// (General meeting -> only General members; Committee meeting -> only
+// Management) and whether quorum has been met - see MeetingDetail below.
+const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted, addOptionButton }) => {
   const [choice, setChoice] = useState(item.voteOptions[0]?.label || '');
   if (!hasJoined) {
-    return <span className="text-slate-300">—</span>;
+    return (
+      <div className="flex items-center gap-1.5">
+        {addOptionButton}
+        <span className="text-slate-300">—</span>
+      </div>
+    );
   }
   if (!canVote) {
-    return <span className="text-xs text-slate-400">View only</span>;
+    return (
+      <div className="flex items-center gap-1.5">
+        {addOptionButton}
+        <span className="text-xs text-slate-400">View only</span>
+      </div>
+    );
   }
   return (
     <div className="flex items-center gap-1.5">
-      <select disabled={hasVoted} className="input py-1 text-xs w-36 disabled:opacity-60" value={choice} onChange={(e) => setChoice(e.target.value)}>
-        {item.voteOptions.map((o) => (
-          <option key={o.label} value={o.label}>
-            {o.label}(Votes={o.votes || 0})
-          </option>
-        ))}
-      </select>
+      {addOptionButton}
       {/* One vote per person - once hasVoted comes back true from the
           server, this button stays disabled forever for this agenda item,
           even after a page reload (not just for the current session). */}
@@ -61,6 +72,13 @@ const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted }) 
       >
         {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} {hasVoted ? 'Voted' : 'Vote'}
       </button>
+      <select disabled={hasVoted} className="input py-1 text-xs w-36 disabled:opacity-60" value={choice} onChange={(e) => setChoice(e.target.value)}>
+        {item.voteOptions.map((o) => (
+          <option key={o.label} value={o.label}>
+            {o.label}(Votes={o.votes || 0})
+          </option>
+        ))}
+      </select>
     </div>
   );
 };
@@ -121,7 +139,6 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   const [optionModalAgenda, setOptionModalAgenda] = useState(null);
 
   const canManage = user?.role === 'secretary';
-  const canVote = ['secretary', 'chairman', 'treasurer', 'committee_member'].includes(user?.role);
 
   const load = useCallback(async () => {
     const res = await api.get(`/meetings/${meeting._id}/full`);
@@ -172,6 +189,11 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   const relevantJoined = isGeneral ? attendance.joinedMembers : attendance.joinedManagement;
   const relevantRequired = isGeneral ? attendance.minRequiredMembers : attendance.minRequiredManagement;
   const quorumMet = relevantJoined >= relevantRequired;
+  // Voting rights (#2): General meeting -> only General members may vote;
+  // Committee meeting -> only Management may vote. The voting table itself
+  // is also hidden entirely until quorum is met (#1) - see below.
+  const canVote = isGeneral ? ['resident', 'tenant'].includes(user?.role) : MANAGEMENT_ROLES.includes(user?.role);
+  const showVotingTable = status !== 'Upcoming' && quorumMet;
 
   return (
     <div className="card mt-4 border-2 border-brand-100">
@@ -245,7 +267,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
       <p className="text-xs font-semibold text-slate-500 mb-2">Agenda Count: {agendaItems.length}</p>
       {agendaItems.length === 0 ? (
         <p className="text-sm text-slate-400 mb-4">No agenda items added yet.</p>
-      ) : status === 'Upcoming' ? (
+      ) : !showVotingTable ? (
+        // Upcoming, OR In Progress but quorum not yet met (#1) - plain
+        // Sr./Agenda list only, no Vote/Decision until quorum is reached.
         <table className="w-full text-sm mb-4">
           <thead>
             <tr className="text-slate-400 text-left border-b border-slate-100">
@@ -268,8 +292,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             <tr className="text-slate-400 text-left border-b border-slate-100">
               <th className="font-medium pb-1.5 w-8">Sr.</th>
               <th className="font-medium pb-1.5">Agenda</th>
+              {/* Decision now renders under the Vote cell itself, so no
+                  separate Decision column is needed (#4). */}
               <th className="font-medium pb-1.5">Vote</th>
-              <th className="font-medium pb-1.5">Decision</th>
             </tr>
           </thead>
           <tbody>
@@ -278,21 +303,24 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
                 <td className="py-2 text-slate-500">{i + 1}</td>
                 <td className="py-2 text-slate-700">{a.agenda}</td>
                 <td className="py-2">
-                  <div className="flex items-center gap-1.5">
-                    <OptionSelectVote item={a} canVote={canVote && status === 'In Progress'} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
-                    {canManage && (
-                      <button onClick={() => setOptionModalAgenda(a._id)} title="Add Option" className="text-slate-400 hover:text-brand-600 shrink-0">
-                        <Plus size={15} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="py-2 text-slate-700">
-                  {a.decision && a.decision.votes > 0 ? (
-                    <span>{a.decision.label}(Votes={a.decision.votes})</span>
-                  ) : (
-                    <span className="text-slate-300">—</span>
-                  )}
+                  <OptionSelectVote
+                    item={a}
+                    canVote={canVote && status === 'In Progress'}
+                    hasJoined={hasJoined}
+                    onVote={handleVote}
+                    busy={votingId === a._id}
+                    hasVoted={a.hasVoted}
+                    addOptionButton={
+                      canManage ? (
+                        <button onClick={() => setOptionModalAgenda(a._id)} title="Add Option" className="text-slate-400 hover:text-brand-600 shrink-0">
+                          <Plus size={15} />
+                        </button>
+                      ) : null
+                    }
+                  />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
+                  </p>
                 </td>
               </tr>
             ))}
@@ -304,7 +332,8 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
           purely based on `status`, independent of whether *this* viewer has
           joined; the participant's own Add Me / Exit action is a separate
           block driven by hasJoined/hasExited (#2 fix: once hasExited is
-          true, neither button renders again for this person). */}
+          true, neither button renders again for this person). Stop Meeting
+          additionally requires quorum to be met (#1). */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {status === 'Upcoming' && canManage && (
           <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/start-attendance`))} className="btn-primary flex items-center gap-1.5 disabled:opacity-60">
@@ -312,7 +341,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
           </button>
         )}
 
-        {status === 'In Progress' && canManage && (
+        {status === 'In Progress' && canManage && quorumMet && (
           <button disabled={busy} onClick={() => act(() => api.patch(`/meetings/${meeting._id}/stop`))} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-60">
             <StopCircle size={15} /> Stop Meeting
           </button>
@@ -344,7 +373,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2 text-sm text-amber-800">
           <Hourglass size={16} className="shrink-0 mt-0.5" />
           <p>
-            Minimum required {isGeneral ? 'members' : 'management'} have not yet joined ({relevantJoined}/{relevantRequired}). Voting results shown are provisional until quorum is met.
+            Minimum required {isGeneral ? 'members' : 'management'} have not yet joined ({relevantJoined}/{relevantRequired}). Voting will unlock, and the meeting can be stopped, once quorum is met.
           </p>
         </div>
       )}

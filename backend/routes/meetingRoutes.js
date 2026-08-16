@@ -3,33 +3,29 @@ const { Op } = require('sequelize');
 const Meeting = require('../models/Meeting');
 const AgendaItem = require('../models/AgendaItem');
 const MeetingAttendance = require('../models/MeetingAttendance');
-const Membership = require('../models/Membership');
-const MeetingSettings = require('../models/MeetingSettings');
 const makeCrudRouter = require('../utils/makeCrudRouter');
 const asyncHandler = require('../utils/asyncHandler');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/auditLog');
-const { ALL_MANAGEMENT } = require('../config/permissions');
+const { getQuorumTotals, getQuorumSettings, ALL_MANAGEMENT } = require('../utils/quorum');
 
 const router = express.Router();
 
-// Real (not hardcoded) quorum totals for this society: "Members" = active
-// resident+tenant memberships, "Management" = active secretary/chairman/
-// treasurer/committee_member memberships.
-const getQuorumTotals = async (societyId) => {
-  const [totalMembers, totalManagement] = await Promise.all([
-    Membership.count({ where: { society: societyId, role: { [Op.in]: ['resident', 'tenant'] }, status: 'active' } }),
-    Membership.count({ where: { society: societyId, role: { [Op.in]: ALL_MANAGEMENT }, status: 'active' } }),
+// Whether the relevant attendance category (General members for a General
+// meeting, Management for a Committee meeting) has met its configured
+// minimum for this specific meeting right now. Shared by /stop (backend
+// enforcement) and /:id/full (UI gating of Stop Meeting / the voting table).
+const isQuorumMetForMeeting = async (meeting, societyId) => {
+  const isGeneral = meeting.type !== 'Committee';
+  const [quorumSettings, attendanceRows] = await Promise.all([
+    getQuorumSettings(societyId),
+    MeetingAttendance.findAll({ where: { society: societyId, meeting: meeting.id } }),
   ]);
-  return { totalMembers, totalManagement };
-};
-
-// Society-wide quorum minimums (Settings page) - same for every meeting,
-// never set per-meeting. Auto-creates a default row (1/1) the first time a
-// society is asked for it, so this never 404s.
-const getQuorumSettings = async (societyId) => {
-  const [row] = await MeetingSettings.findOrCreate({ where: { society: societyId }, defaults: { society: societyId } });
-  return row;
+  const joinedCount = isGeneral
+    ? attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length
+    : attendanceRows.filter((a) => ALL_MANAGEMENT.includes(a.role)).length;
+  const requiredCount = isGeneral ? quorumSettings.minRequiredMembers : quorumSettings.minRequiredManagement;
+  return joinedCount >= requiredCount;
 };
 
 // Attaches "Building No." (derived from flatId's tower-letter prefix, e.g.
@@ -107,7 +103,9 @@ router.patch(
 );
 
 // @route PATCH /api/meetings/:id/stop - "Stop Meeting" (Secretary only).
-// "In Progress" -> "Completed".
+// "In Progress" -> "Completed". Only allowed once the relevant category
+// (General members for a General meeting, Management for a Committee
+// meeting) has met its configured minimum attendance.
 router.patch(
   '/:id/stop',
   protect,
@@ -116,6 +114,9 @@ router.patch(
     const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
     if (meeting.status !== 'In Progress') return res.status(400).json({ message: 'Only a meeting that is In Progress can be stopped.' });
+    if (!(await isQuorumMetForMeeting(meeting, req.societyId))) {
+      return res.status(400).json({ message: 'Minimum required attendance has not been met yet for this meeting.' });
+    }
     await meeting.update({ status: 'Completed' });
     logActivity(req, { action: 'Update', resourceType: 'Meeting', resourceId: meeting.id, details: { status: 'Completed' } });
     res.json(meeting);
