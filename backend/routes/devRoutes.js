@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const asyncHandler = require('../utils/asyncHandler');
 const runSeed = require('../utils/seed');
+const { runPendingFixes } = require('../utils/migrations');
 
 // Lets you (re)seed the deployed database from a button in the app instead of
 // needing Shell/SSH access (which Render's free plan doesn't include).
@@ -31,6 +32,33 @@ router.post(
 
     const result = await runSeed();
     res.json({ message: 'Database seeded successfully.', ...result });
+  })
+);
+
+// Applies any pending, non-destructive schema fixes (see utils/migrations/)
+// - the safe alternative to /seed for when sequelize.sync({alter:true})
+// alone can't finish a schema change (e.g. dropping an old constraint a
+// later model change replaced). NEVER touches data, only schema. Safe to
+// call repeatedly: already-applied fixes are tracked and skipped.
+//
+// @route POST /api/dev/migrate
+router.post(
+  '/migrate',
+  asyncHandler(async (req, res) => {
+    const expected = process.env.SEED_SECRET;
+    if (!expected) {
+      return res.status(403).json({ message: 'This is disabled. Set SEED_SECRET as an environment variable on the backend to enable this.' });
+    }
+    const provided = req.headers['x-seed-secret'];
+    if (provided !== expected) {
+      return res.status(401).json({ message: 'Incorrect secret.' });
+    }
+
+    const result = await runPendingFixes();
+    res.json({
+      message: result.applied.length ? `Applied ${result.applied.length} fix(es): ${result.applied.join(', ')}` : 'Already up to date - nothing to apply.',
+      ...result,
+    });
   })
 );
 
