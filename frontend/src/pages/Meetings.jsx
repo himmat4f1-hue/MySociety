@@ -36,36 +36,33 @@ const STATUS_STYLE = {
 
 const MANAGEMENT_ROLES = ['secretary', 'chairman', 'treasurer', 'committee_member'];
 
-// Vote UI for one agenda row. canVote here already reflects BOTH the
-// meeting-type voting-rights rule (General meeting -> only General members;
-// Committee meeting -> only Management) and whether quorum has been met -
-// see MeetingDetail below. Only rendered for eligible voters or non-manager
-// viewers - the Secretary gets their own admin controls instead (see the
-// table row below), not this "View only" fallback.
+// Vote UI for one agenda row. The select box (showing every option with its
+// live vote count) is ALWAYS visible to everyone, including the Secretary -
+// it's how anyone previews current standings, not just how eligible voters
+// cast a vote. The "Vote" button itself only appears for people who are
+// actually eligible per the meeting-type rule (General meeting -> only
+// General members; Committee meeting -> only Management - see MeetingDetail
+// below) - the Secretary gets their own admin controls in the row instead
+// (Add Option / Reset / Start-Stop Voting), not a Vote button, unless
+// they're ALSO an eligible voter for this meeting type.
 const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted }) => {
   const [choice, setChoice] = useState(item.voteOptions[0]?.label || '');
-  if (!hasJoined) {
-    return <span className="text-slate-300">—</span>;
-  }
-  if (!canVote) {
-    return <span className="text-xs text-slate-400">View only</span>;
-  }
-  if (item.votingState !== 'active') {
-    return <span className="text-xs text-slate-400">Voting not open yet</span>;
-  }
+  // One vote per person - once hasVoted comes back true from the server,
+  // the button/select stay disabled forever for this agenda item, even
+  // after a page reload (not just for the current session).
+  const canActuallyVote = canVote && hasJoined && item.votingState === 'active' && !hasVoted;
   return (
     <div className="flex items-center gap-1.5">
-      {/* One vote per person - once hasVoted comes back true from the
-          server, this button stays disabled forever for this agenda item,
-          even after a page reload (not just for the current session). */}
-      <button
-        disabled={busy || hasVoted}
-        onClick={() => onVote(item._id, choice)}
-        className="btn-primary text-xs px-2 py-1 flex items-center gap-1 disabled:opacity-50 shrink-0"
-      >
-        {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} {hasVoted ? 'Voted' : 'Vote'}
-      </button>
-      <select disabled={hasVoted} className="input py-1 text-xs w-36 disabled:opacity-60" value={choice} onChange={(e) => setChoice(e.target.value)}>
+      {canVote && (
+        <button
+          disabled={!canActuallyVote || busy}
+          onClick={() => onVote(item._id, choice)}
+          className="btn-primary text-xs px-2 py-1 flex items-center gap-1 disabled:opacity-50 shrink-0"
+        >
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <ListChecks size={11} />} {hasVoted ? 'Voted' : 'Vote'}
+        </button>
+      )}
+      <select disabled={!canActuallyVote} className="input py-1 text-xs w-36 disabled:opacity-60" value={choice} onChange={(e) => setChoice(e.target.value)}>
         {item.voteOptions.map((o) => (
           <option key={o.label} value={o.label}>
             {o.label}(Votes={o.votes || 0})
@@ -138,8 +135,20 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
     setDetail(res.data);
   }, [meeting._id]);
 
+  // Live updates (#3): two people can have this same meeting open in
+  // different browsers/accounts at once - e.g. Secretary resets votes or
+  // starts/stops voting on one agenda item while a Member is watching in
+  // another tab. Without this, the Member's view only updates when THEY
+  // take an action or manually reload the page, so a Secretary's change
+  // (or anyone else's vote) looks like it "didn't happen" until then. Poll
+  // quietly every 5s in the background - setDetail() just replaces state,
+  // no loading flicker, and any local per-item <select> choice the person
+  // was mid-adjusting is untouched since it's kept in that item's own
+  // component state, not derived from `detail`.
   useEffect(() => {
     load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [load]);
 
   const act = async (fn, successRefresh = true) => {
@@ -315,14 +324,11 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
           <tbody>
             {agendaItems.map((a, i) => {
               // Secretary always gets admin controls (+, Reset, Start/Stop
-              // Voting) for every agenda item, regardless of whether they
-              // themselves are an eligible voter for this meeting type (#2:
-              // Secretary manages options/voting - "View only" never
-              // applies to them). If the Secretary IS also an eligible
-              // voter (Committee meeting), their own Vote UI renders too,
-              // alongside those controls.
+              // Voting) for every agenda item. The select box itself is
+              // ALWAYS shown too (even to the Secretary, and even to
+              // non-eligible viewers) - see OptionSelectVote above; only
+              // the Vote button is conditional on eligibility.
               const iAmEligibleVoter = canVote && status === 'In Progress';
-              const showVoterUI = !canManage || iAmEligibleVoter;
               return (
                 <tr key={a._id} className="border-b border-slate-50 last:border-0">
                   <td className="py-2 text-slate-500">{i + 1}</td>
@@ -344,9 +350,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
                           )}
                         </>
                       )}
-                      {showVoterUI && (
-                        <OptionSelectVote item={a} canVote={iAmEligibleVoter} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
-                      )}
+                      <OptionSelectVote item={a} canVote={iAmEligibleVoter} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
                       Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
