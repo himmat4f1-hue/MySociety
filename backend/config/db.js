@@ -48,6 +48,24 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('PostgreSQL Connected Successfully');
 
+    // Run any pending non-destructive schema fixes BEFORE sync (see
+    // utils/migrations/). This matters specifically because some model
+    // changes (e.g. widening an array column's element type) are
+    // incompatible enough that sync({alter:true}) can't reconcile them on
+    // its own - it throws, and since any sync failure below calls
+    // process.exit(1), that would crash the server on every single boot
+    // until someone manually intervened. Running these first means the
+    // schema is already compatible by the time sync runs, so the normal
+    // (safe) column-add/adjust behavior of alter:true is all that's left
+    // for it to do. Required (not optional/lazy-loaded via a button) for
+    // exactly this reason - a fix that only runs from an authenticated
+    // endpoint is useless if the server never boots far enough to serve
+    // that endpoint.
+    const { runPendingFixes } = require('../utils/migrations');
+    const fixResult = await runPendingFixes();
+    if (fixResult.applied.length) console.log('Applied schema fixes:', fixResult.applied.join(', '));
+    if (fixResult.failed.length) console.warn('Schema fixes skipped for now (will retry next boot):', fixResult.failed.map((f) => f.file).join(', '));
+
     // Sync models with database (creates tables if missing, and - critically -
     // ALTERs existing tables to add/adjust columns when a model changes).
     // This app has no separate migration system, so `alter: true` runs in

@@ -39,6 +39,7 @@ const runPendingFixes = async () => {
 
   const applied = [];
   const skipped = [];
+  const failed = [];
 
   for (const file of files) {
     if (alreadyApplied.has(file)) {
@@ -46,12 +47,23 @@ const runPendingFixes = async () => {
       continue;
     }
     const migration = require(path.join(__dirname, file));
-    await migration.run(sequelize);
-    await sequelize.query('INSERT INTO "SchemaFixes" (name) VALUES (:name)', { replacements: { name: file } });
-    applied.push(file);
+    try {
+      await migration.run(sequelize);
+      await sequelize.query('INSERT INTO "SchemaFixes" (name) VALUES (:name)', { replacements: { name: file } });
+      applied.push(file);
+    } catch (err) {
+      // Never let one bad/premature migration (e.g. one that targets a
+      // table that doesn't exist yet on a brand-new database) crash the
+      // whole batch or, worse, the server boot that calls this. Log it and
+      // leave it un-recorded so it's retried next time (next restart, or
+      // the next "Run Pending Fixes" click) - by then the table it needs
+      // will usually exist.
+      console.error(`Schema fix "${file}" failed, will retry later:`, err.message);
+      failed.push({ file, error: err.message });
+    }
   }
 
-  return { applied, skipped };
+  return { applied, skipped, failed };
 };
 
 module.exports = { runPendingFixes };
