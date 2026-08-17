@@ -40,9 +40,12 @@ const AgendaItem = sequelize.define('AgendaItem', {
     allowNull: true,
     defaultValue: 0,
   },
-  // internal dedup list of User ids - never exposed via API
+  // internal dedup list of MEMBERSHIP keys ("user:role:flatId", see
+  // utils/membership.js) - never exposed via API. Keyed by membership, not
+  // just user id, because one login can hold multiple memberships (e.g.
+  // Resident of two different flats) that must each get their own vote.
   voters: {
-    type: DataTypes.ARRAY(DataTypes.UUID),
+    type: DataTypes.ARRAY(DataTypes.STRING),
     defaultValue: [],
   },
   estimatedStartDate: {
@@ -68,7 +71,18 @@ const AgendaItem = sequelize.define('AgendaItem', {
   },
   voteOptions: {
     type: DataTypes.JSONB,
-    defaultValue: [{ label: 'Cancel', votes: 0 }, { label: 'Reject', votes: 0 }, { label: 'Approve', votes: 0 }],
+    defaultValue: [{ label: 'Approve', votes: 0 }, { label: 'Reject/Cancel', votes: 0 }],
+  },
+  // Secretary-controlled voting toggle for THIS agenda item (separate from
+  // votingStartAt/votingEndAt above, which are an optional fixed window -
+  // this is a manual on/off switch): 'not_started' -> Vote button hidden
+  // for everyone; 'active' -> eligible voters (per meeting type) see the
+  // Vote button; 'stopped' -> Vote button hidden again and the Start/Stop
+  // toggle itself hides too, until "Reset" (which also clears all votes)
+  // brings it back to 'not_started'.
+  votingState: {
+    type: DataTypes.ENUM('not_started', 'active', 'stopped'),
+    defaultValue: 'not_started',
   },
 }, {
   timestamps: true,

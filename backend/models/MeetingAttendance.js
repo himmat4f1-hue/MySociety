@@ -53,8 +53,12 @@ const MeetingAttendance = sequelize.define('MeetingAttendance', {
   },
 }, {
   timestamps: true,
+  // Unique per (meeting, user, role, flatId) - NOT just (meeting, user,
+  // role). The same login can hold multiple memberships with the SAME role
+  // too (e.g. Resident/Owner of two different flats), and each flat's
+  // attendance needs to be tracked - and count toward quorum - separately.
   indexes: [
-    { unique: true, fields: ['meeting', 'user'] },
+    { unique: true, fields: ['meeting', 'user', 'role', 'flatId'] },
   ],
 });
 

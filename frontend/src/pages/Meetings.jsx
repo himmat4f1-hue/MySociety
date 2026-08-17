@@ -36,32 +36,25 @@ const STATUS_STYLE = {
 
 const MANAGEMENT_ROLES = ['secretary', 'chairman', 'treasurer', 'committee_member'];
 
-// Vote UI for one agenda row - left-to-right: "Add Option" (+, secretary
-// only, passed in as addOptionButton), Vote button, then the option select.
-// canVote here already reflects BOTH the meeting-type voting-rights rule
-// (General meeting -> only General members; Committee meeting -> only
-// Management) and whether quorum has been met - see MeetingDetail below.
-const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted, addOptionButton }) => {
+// Vote UI for one agenda row. canVote here already reflects BOTH the
+// meeting-type voting-rights rule (General meeting -> only General members;
+// Committee meeting -> only Management) and whether quorum has been met -
+// see MeetingDetail below. Only rendered for eligible voters or non-manager
+// viewers - the Secretary gets their own admin controls instead (see the
+// table row below), not this "View only" fallback.
+const OptionSelectVote = ({ item, canVote, hasJoined, onVote, busy, hasVoted }) => {
   const [choice, setChoice] = useState(item.voteOptions[0]?.label || '');
   if (!hasJoined) {
-    return (
-      <div className="flex items-center gap-1.5">
-        {addOptionButton}
-        <span className="text-slate-300">—</span>
-      </div>
-    );
+    return <span className="text-slate-300">—</span>;
   }
   if (!canVote) {
-    return (
-      <div className="flex items-center gap-1.5">
-        {addOptionButton}
-        <span className="text-xs text-slate-400">View only</span>
-      </div>
-    );
+    return <span className="text-xs text-slate-400">View only</span>;
+  }
+  if (item.votingState !== 'active') {
+    return <span className="text-xs text-slate-400">Voting not open yet</span>;
   }
   return (
     <div className="flex items-center gap-1.5">
-      {addOptionButton}
       {/* One vote per person - once hasVoted comes back true from the
           server, this button stays disabled forever for this agenda item,
           even after a page reload (not just for the current session). */}
@@ -173,6 +166,28 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
       alert(err.response?.data?.message || 'Could not vote.');
     } finally {
       setVotingId(null);
+    }
+  };
+
+  // Secretary-only agenda controls (#3, #4): Reset clears everyone's votes
+  // on this agenda item; Start/Stop toggles whether the Vote button/select
+  // is visible to eligible voters at all for this specific agenda item.
+  const handleResetVotes = async (agendaId) => {
+    if (!window.confirm('Reset all votes for this agenda item? This cannot be undone.')) return;
+    try {
+      await api.post(`/agenda-items/${agendaId}/reset-votes`);
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not reset votes.');
+    }
+  };
+
+  const handleToggleVoting = async (agendaId, currentState) => {
+    try {
+      await api.post(`/agenda-items/${agendaId}/${currentState === 'active' ? 'stop-voting' : 'start-voting'}`);
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not update voting state.');
     }
   };
 
@@ -298,32 +313,48 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             </tr>
           </thead>
           <tbody>
-            {agendaItems.map((a, i) => (
-              <tr key={a._id} className="border-b border-slate-50 last:border-0">
-                <td className="py-2 text-slate-500">{i + 1}</td>
-                <td className="py-2 text-slate-700">{a.agenda}</td>
-                <td className="py-2">
-                  <OptionSelectVote
-                    item={a}
-                    canVote={canVote && status === 'In Progress'}
-                    hasJoined={hasJoined}
-                    onVote={handleVote}
-                    busy={votingId === a._id}
-                    hasVoted={a.hasVoted}
-                    addOptionButton={
-                      canManage ? (
-                        <button onClick={() => setOptionModalAgenda(a._id)} title="Add Option" className="text-slate-400 hover:text-brand-600 shrink-0">
-                          <Plus size={15} />
-                        </button>
-                      ) : null
-                    }
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
-                  </p>
-                </td>
-              </tr>
-            ))}
+            {agendaItems.map((a, i) => {
+              // Secretary always gets admin controls (+, Reset, Start/Stop
+              // Voting) for every agenda item, regardless of whether they
+              // themselves are an eligible voter for this meeting type (#2:
+              // Secretary manages options/voting - "View only" never
+              // applies to them). If the Secretary IS also an eligible
+              // voter (Committee meeting), their own Vote UI renders too,
+              // alongside those controls.
+              const iAmEligibleVoter = canVote && status === 'In Progress';
+              const showVoterUI = !canManage || iAmEligibleVoter;
+              return (
+                <tr key={a._id} className="border-b border-slate-50 last:border-0">
+                  <td className="py-2 text-slate-500">{i + 1}</td>
+                  <td className="py-2 text-slate-700">{a.agenda}</td>
+                  <td className="py-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {canManage && (
+                        <>
+                          <button onClick={() => setOptionModalAgenda(a._id)} title="Add Option" className="text-slate-400 hover:text-brand-600 shrink-0">
+                            <Plus size={15} />
+                          </button>
+                          <button onClick={() => handleResetVotes(a._id)} className="btn-secondary text-xs px-2 py-1 shrink-0">
+                            Reset
+                          </button>
+                          {a.votingState !== 'stopped' && (
+                            <button onClick={() => handleToggleVoting(a._id, a.votingState)} className="btn-primary text-xs px-2 py-1 shrink-0">
+                              {a.votingState === 'active' ? 'Stop Voting' : 'Start Voting'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {showVoterUI && (
+                        <OptionSelectVote item={a} canVote={iAmEligibleVoter} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
+                    </p>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

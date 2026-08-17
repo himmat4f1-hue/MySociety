@@ -8,6 +8,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/auditLog');
 const { getQuorumTotals, getQuorumSettings, ALL_MANAGEMENT } = require('../utils/quorum');
+const { membershipKey } = require('../utils/membership');
 
 const router = express.Router();
 
@@ -155,10 +156,11 @@ router.post(
       return res.status(403).json({ message: 'This meeting is not in progress right now.' });
     }
 
-    // Dedupe is per (meeting, user, role) - see the MeetingAttendance model
-    // note: the same login can hold multiple memberships (e.g. Secretary
-    // AND a Resident/Owner of a flat), and each joins independently.
-    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role } });
+    // Dedupe is per (meeting, user, role, flatId) - see the
+    // MeetingAttendance model note: the same login can hold multiple
+    // memberships (e.g. Secretary AND a Resident, or Resident of two
+    // different flats), and each one joins independently.
+    const existing = await MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role, flatId: req.flatId || null } });
     if (existing) return res.status(400).json({ message: 'You are already marked present for this meeting.' });
 
     const record = await MeetingAttendance.create({
@@ -185,7 +187,7 @@ router.post(
     // Only exits THIS role's attendance (see model note) - if the same
     // person is also joined under a different role in this meeting, that
     // other attendance/session is untouched.
-    const attendance = await MeetingAttendance.findOne({ where: { meeting: req.params.id, user: req.user.id, role: req.role } });
+    const attendance = await MeetingAttendance.findOne({ where: { meeting: req.params.id, user: req.user.id, role: req.role, flatId: req.flatId || null } });
     if (attendance && !attendance.exitedAt) {
       await attendance.update({ exitedAt: new Date() });
     }
@@ -212,15 +214,16 @@ router.get(
       // hasJoined/hasExited must reflect THIS session's active role, not
       // just this login - see the model note on why (meeting, user) alone
       // is wrong when one person holds multiple memberships.
-      MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role } }),
+      MeetingAttendance.findOne({ where: { meeting: meeting.id, user: req.user.id, role: req.role, flatId: req.flatId || null } }),
     ]);
 
+    const myKey = membershipKey(req);
     const agendaItems = agendaItemsRaw.map((item) => {
       const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject/Cancel', votes: 0 }];
       const leading = options.reduce((best, o) => (o.votes > (best?.votes || -1) ? o : best), null);
       const json = item.toJSON();
-      delete json.voters; // never expose who voted - just whether THIS user has (below)
-      return { ...json, voteOptions: options, decision: leading, hasVoted: (item.voters || []).includes(req.user.id) };
+      delete json.voters; // never expose who voted - just whether THIS membership has (below)
+      return { ...json, voteOptions: options, decision: leading, hasVoted: (item.voters || []).includes(myKey) };
     });
 
     const joinedMembers = attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length;
