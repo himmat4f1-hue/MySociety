@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  PartyPopper, ClipboardList, Wallet, Receipt, FileBarChart, Plus, Pencil, Trash2,
+  ClipboardList, Wallet, Receipt, FileBarChart, Plus, Pencil, Trash2,
   Target, Clock, Wallet as WalletIcon, PieChart, Building2, CheckCircle2,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Badge from '../components/Badge';
+import Layout from '../components/Layout';
 
 const TABS = [
   { id: 1, key: 'fund', label: 'Fund / Celebration', sub: 'Create / Edit / Delete', icon: ClipboardList, color: 'blue' },
@@ -208,18 +209,9 @@ const CelebrationDonation = () => {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-          <PartyPopper size={22} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Fund / Celebration Management</h1>
-          <p className="text-sm text-slate-500">Create Fund/Celebration, Add Funds, Enter Expenses and View Reports</p>
-        </div>
-      </div>
-
-      {error && (
+    <Layout title="Fund / Celebration Management" subtitle="Create Fund/Celebration, Add Funds, Enter Expenses and View Reports">
+      <div className="space-y-5">
+        {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">{error}</div>
       )}
 
@@ -530,7 +522,8 @@ const CelebrationDonation = () => {
         <Building2 size={16} className="mt-0.5 shrink-0" />
         Fund/Collection entries and Expenses must be added against a specific Fund/Celebration. Deleting a Fund/Celebration will not delete the associated transactions.
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

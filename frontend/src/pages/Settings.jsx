@@ -172,13 +172,31 @@ const DropdownListCard = ({ category, label, defaults }) => {
   );
 };
 
+const ROLE_LABELS = {
+  secretary: 'Secretary',
+  chairman: 'Chairman',
+  treasurer: 'Treasurer',
+  accountant: 'Accountant',
+  committee_member: 'Committee Member',
+};
+// Roles that can be added to the Management list. (resident/tenant are
+// General members, never Management, and are counted separately via the
+// actual flat count - not offered here.)
+const ADDABLE_ROLES = Object.keys(ROLE_LABELS);
+
 const MeetingQuorumCard = ({ canManage }) => {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [totalFlats, setTotalFlats] = useState(null);
+  const [roleToAdd, setRoleToAdd] = useState('');
 
   useEffect(() => {
     api.get('/meetings/quorum-settings').then((res) => setSettings(res.data));
+    // "Total (Members/General)" is just the flat count - shown here
+    // read-only so the Secretary can see where that number comes from,
+    // without it being something to type in by hand.
+    api.get('/units', { params: { limit: 1 } }).then((res) => setTotalFlats(res.data.total ?? res.data.data?.length ?? null)).catch(() => {});
   }, []);
 
   const update = (field, value) => {
@@ -186,12 +204,39 @@ const MeetingQuorumCard = ({ canManage }) => {
     setDirty(true);
   };
 
+  const updateRole = (role, field, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      managementRoles: prev.managementRoles.map((r) => (r.role === role ? { ...r, [field]: value } : r)),
+    }));
+    setDirty(true);
+  };
+
+  const removeRole = (role) => {
+    setSettings((prev) => ({ ...prev, managementRoles: prev.managementRoles.filter((r) => r.role !== role) }));
+    setDirty(true);
+  };
+
+  const addRole = () => {
+    if (!roleToAdd) return;
+    setSettings((prev) => ({
+      ...prev,
+      managementRoles: [...(prev.managementRoles || []), { role: roleToAdd, label: ROLE_LABELS[roleToAdd] || roleToAdd, count: 1, enabled: true }],
+    }));
+    setRoleToAdd('');
+    setDirty(true);
+  };
+
+  const totalManagement = (settings?.managementRoles || []).filter((r) => r.enabled).reduce((sum, r) => sum + (Number(r.count) || 0), 0);
+  const availableToAdd = ADDABLE_ROLES.filter((role) => !(settings?.managementRoles || []).some((r) => r.role === role));
+
   const save = async () => {
     setSaving(true);
     try {
       const res = await api.put('/meetings/quorum-settings', {
         minRequiredMembers: Number(settings.minRequiredMembers),
         minRequiredManagement: Number(settings.minRequiredManagement),
+        managementRoles: settings.managementRoles,
       });
       setSettings(res.data);
       setDirty(false);
@@ -232,6 +277,71 @@ const MeetingQuorumCard = ({ canManage }) => {
           </div>
         </div>
       )}
+
+      {settings && (
+        <div className="mt-5 pt-5 border-t border-slate-100">
+          <h4 className="font-semibold text-slate-800 mb-1">Attendance Totals</h4>
+          <p className="text-xs text-slate-400 mb-3">
+            These define what "Total" means on each meeting's Attendance card. "Members (General)" is always the number of flats in the society - it isn't
+            configured here.
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500">Total (Members / General)</p>
+              <p className="text-lg font-bold text-slate-800">{totalFlats ?? '—'} flats</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500">Total (Management)</p>
+              <p className="text-lg font-bold text-slate-800">{totalManagement}</p>
+            </div>
+          </div>
+
+          <p className="text-sm font-medium text-slate-700 mb-2">Management Roles</p>
+          <div className="space-y-2 mb-3">
+            {(settings.managementRoles || []).map((r) => (
+              <div key={r.role} className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 w-40 shrink-0 text-sm text-slate-700">
+                  <input type="checkbox" disabled={!canManage} checked={r.enabled} onChange={(e) => updateRole(r.role, 'enabled', e.target.checked)} />
+                  {ROLE_LABELS[r.role] || r.label || r.role}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input py-1 text-sm w-24"
+                  disabled={!canManage || !r.enabled}
+                  value={r.count}
+                  onChange={(e) => updateRole(r.role, 'count', e.target.value)}
+                />
+                <span className="text-xs text-slate-400">people</span>
+                {canManage && (
+                  <button onClick={() => removeRole(r.role)} className="text-red-400 hover:text-red-600 ml-1" title="Remove this role from Management">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {!(settings.managementRoles || []).length && <p className="text-xs text-slate-400">No Management roles configured.</p>}
+          </div>
+
+          {canManage && availableToAdd.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select className="input py-1.5 text-sm w-48" value={roleToAdd} onChange={(e) => setRoleToAdd(e.target.value)}>
+                <option value="">Add a role...</option>
+                {availableToAdd.map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+              <button onClick={addRole} disabled={!roleToAdd} className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 flex items-center gap-1">
+                <Plus size={13} /> Add
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {canManage && dirty && (
         <button onClick={save} disabled={saving} className="btn-primary text-xs mt-3 flex items-center gap-1.5 disabled:opacity-60">
           {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {saving ? 'Saving...' : 'Save Changes'}

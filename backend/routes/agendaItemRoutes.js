@@ -6,7 +6,7 @@ const Meeting = require('../models/Meeting');
 const MeetingAttendance = require('../models/MeetingAttendance');
 const { protect, authorize } = require('../middleware/auth');
 const buildCrudController = require('../controllers/genericController');
-const { getQuorumSettings, ALL_MANAGEMENT } = require('../utils/quorum');
+const { getQuorumSettings, getManagementRoleSet } = require('../utils/quorum');
 const { membershipKey } = require('../utils/membership');
 
 const ctrl = buildCrudController(AgendaItem, { searchFields: ['agenda'], populate: 'meeting' });
@@ -40,7 +40,8 @@ router.post(
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
     const isGeneral = meeting.type !== 'Committee';
-    const allowedToVote = isGeneral ? ['resident', 'tenant'].includes(req.role) : ALL_MANAGEMENT.includes(req.role);
+    const managementRoleSet = await getManagementRoleSet(req.societyId);
+    const allowedToVote = isGeneral ? ['resident', 'tenant'].includes(req.role) : managementRoleSet.includes(req.role);
     if (!allowedToVote) {
       return res.status(403).json({
         message: isGeneral
@@ -69,7 +70,7 @@ router.post(
     ]);
     const joinedCount = isGeneral
       ? attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length
-      : attendanceRows.filter((a) => ALL_MANAGEMENT.includes(a.role)).length;
+      : attendanceRows.filter((a) => managementRoleSet.includes(a.role)).length;
     const requiredCount = isGeneral ? quorumSettings.minRequiredMembers : quorumSettings.minRequiredManagement;
     if (joinedCount < requiredCount) {
       return res.status(403).json({ message: 'Minimum required attendance has not been met yet for this meeting.' });
@@ -179,9 +180,10 @@ router.post(
 
 // @route POST /api/agenda-items/:id/reset-votes - Secretary cancels every
 // vote cast so far on this agenda item: all voteOptions counts go back to
-// 0, the voters dedupe list is cleared, and votingState returns to
-// 'not_started' (so "Start Voting" is available again, and the Secretary
-// can also freely add/remove options again before the next round).
+// 0, the voters dedupe list is cleared, any tie-break pick (finalDecision)
+// is cleared, and votingState returns to 'not_started' (so "Start Voting"
+// is available again, and the Secretary can also freely add/remove options
+// again before the next round).
 router.post(
   '/:id/reset-votes',
   protect,
@@ -193,8 +195,39 @@ router.post(
     const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject/Cancel', votes: 0 }];
     const resetOptions = options.map((o) => ({ ...o, votes: 0 }));
 
-    await item.update({ voteOptions: resetOptions, voters: [], noOfVotes: 0, votingState: 'not_started' });
+    await item.update({ voteOptions: resetOptions, voters: [], noOfVotes: 0, votingState: 'not_started', finalDecision: null });
     res.json({ voteOptions: resetOptions, votingState: 'not_started' });
+  })
+);
+
+// @route POST /api/agenda-items/:id/resolve-tie - Secretary manually picks
+// the winner when two-or-more options are tied for the top vote count (see
+// the tiedOptions computation in GET /meetings/:id/full). `label` must be
+// one of the options CURRENTLY tied for the top vote count - this can't be
+// used to override a clear (non-tied) result.
+router.post(
+  '/:id/resolve-tie',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const item = await AgendaItem.findOne({ where: { id: req.params.id, society: req.societyId } });
+    if (!item) return res.status(404).json({ message: 'Not found' });
+
+    const options = item.voteOptions && item.voteOptions.length ? item.voteOptions : [];
+    const topVotes = options.length ? Math.max(...options.map((o) => o.votes || 0)) : 0;
+    const tiedAtTop = topVotes > 0 ? options.filter((o) => (o.votes || 0) === topVotes) : [];
+
+    if (tiedAtTop.length < 2) {
+      return res.status(400).json({ message: 'There is no tie to resolve for this agenda item right now.' });
+    }
+
+    const { label } = req.body;
+    if (!tiedAtTop.some((o) => o.label === label)) {
+      return res.status(400).json({ message: `label must be one of the tied options: ${tiedAtTop.map((o) => o.label).join(', ')}` });
+    }
+
+    await item.update({ finalDecision: label });
+    res.json({ finalDecision: label });
   })
 );
 

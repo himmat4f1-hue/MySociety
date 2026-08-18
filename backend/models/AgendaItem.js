@@ -84,6 +84,15 @@ const AgendaItem = sequelize.define('AgendaItem', {
     type: DataTypes.ENUM('not_started', 'active', 'stopped'),
     defaultValue: 'not_started',
   },
+  // Secretary's manual tie-break pick when two or more options end up with
+  // the SAME top vote count (a real tie can't resolve itself). Once set,
+  // this option is the definitive Decision regardless of the raw vote
+  // count comparison. Cleared back to null by "Reset" along with everything
+  // else.
+  finalDecision: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

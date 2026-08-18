@@ -7,7 +7,7 @@ const makeCrudRouter = require('../utils/makeCrudRouter');
 const asyncHandler = require('../utils/asyncHandler');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/auditLog');
-const { getQuorumTotals, getQuorumSettings, ALL_MANAGEMENT } = require('../utils/quorum');
+const { getQuorumTotals, getQuorumSettings, getManagementRoleSet } = require('../utils/quorum');
 const { membershipKey } = require('../utils/membership');
 
 const router = express.Router();
@@ -18,13 +18,14 @@ const router = express.Router();
 // enforcement) and /:id/full (UI gating of Stop Meeting / the voting table).
 const isQuorumMetForMeeting = async (meeting, societyId) => {
   const isGeneral = meeting.type !== 'Committee';
-  const [quorumSettings, attendanceRows] = await Promise.all([
+  const [quorumSettings, managementRoleSet, attendanceRows] = await Promise.all([
     getQuorumSettings(societyId),
+    getManagementRoleSet(societyId),
     MeetingAttendance.findAll({ where: { society: societyId, meeting: meeting.id } }),
   ]);
   const joinedCount = isGeneral
     ? attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length
-    : attendanceRows.filter((a) => ALL_MANAGEMENT.includes(a.role)).length;
+    : attendanceRows.filter((a) => managementRoleSet.includes(a.role)).length;
   const requiredCount = isGeneral ? quorumSettings.minRequiredMembers : quorumSettings.minRequiredManagement;
   return joinedCount >= requiredCount;
 };
@@ -78,10 +79,26 @@ router.put(
   authorize('secretary'),
   asyncHandler(async (req, res) => {
     const row = await getQuorumSettings(req.societyId);
-    const { minRequiredMembers, minRequiredManagement } = req.body;
+    const { minRequiredMembers, minRequiredManagement, managementRoles } = req.body;
+
+    let cleanedRoles = row.managementRoles;
+    if (Array.isArray(managementRoles)) {
+      // Basic shape validation so a malformed payload can't corrupt the
+      // list every meeting-attendance calculation depends on.
+      cleanedRoles = managementRoles
+        .filter((r) => r && typeof r.role === 'string' && r.role.trim())
+        .map((r) => ({
+          role: r.role.trim(),
+          label: (r.label || r.role).trim(),
+          count: Math.max(0, Number(r.count) || 0),
+          enabled: r.enabled !== false,
+        }));
+    }
+
     await row.update({
       minRequiredMembers: minRequiredMembers ?? row.minRequiredMembers,
       minRequiredManagement: minRequiredManagement ?? row.minRequiredManagement,
+      managementRoles: cleanedRoles,
     });
     res.json(row);
   })
@@ -206,11 +223,12 @@ router.get(
     const meeting = await Meeting.findOne({ where: { id: req.params.id, society: req.societyId } });
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
-    const [agendaItemsRaw, attendanceRows, quorum, quorumSettings, myAttendance] = await Promise.all([
+    const [agendaItemsRaw, attendanceRows, quorum, quorumSettings, managementRoleSet, myAttendance] = await Promise.all([
       AgendaItem.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['createdAt', 'ASC']] }),
       MeetingAttendance.findAll({ where: { society: req.societyId, meeting: meeting.id }, order: [['checkedInAt', 'ASC']] }),
       getQuorumTotals(req.societyId),
       getQuorumSettings(req.societyId),
+      getManagementRoleSet(req.societyId),
       // hasJoined/hasExited must reflect THIS session's active role, not
       // just this login - see the model note on why (meeting, user) alone
       // is wrong when one person holds multiple memberships.
@@ -220,20 +238,33 @@ router.get(
     const myKey = membershipKey(req);
     const agendaItems = agendaItemsRaw.map((item) => {
       const options = item.voteOptions?.length ? item.voteOptions : [{ label: 'Approve', votes: 0 }, { label: 'Reject/Cancel', votes: 0 }];
-      const leading = options.reduce((best, o) => (o.votes > (best?.votes || -1) ? o : best), null);
       const json = item.toJSON();
       delete json.voters; // never expose who voted - just whether THIS membership has (below)
-      return { ...json, voteOptions: options, decision: leading, hasVoted: (item.voters || []).includes(myKey) };
+
+      // Decision (#3): if two-or-more options are tied for the top vote
+      // count, there's no automatic winner - the Secretary must pick one
+      // (see finalDecision + /resolve-tie). tiedOptions is only populated
+      // (for the frontend to render radio buttons) when a real, unresolved
+      // tie exists; once the Secretary resolves it, finalDecision wins
+      // regardless of the raw numbers, and tiedOptions goes back to empty.
+      const topVotes = options.length ? Math.max(...options.map((o) => o.votes || 0)) : 0;
+      const tiedAtTop = topVotes > 0 ? options.filter((o) => (o.votes || 0) === topVotes) : [];
+      const resolvedDecision = item.finalDecision ? options.find((o) => o.label === item.finalDecision) || null : null;
+      const decision = resolvedDecision || (tiedAtTop.length === 1 ? tiedAtTop[0] : null);
+      const tiedOptions = !resolvedDecision && tiedAtTop.length > 1 ? tiedAtTop : [];
+
+      return { ...json, voteOptions: options, decision, tiedOptions, hasVoted: (item.voters || []).includes(myKey) };
     });
 
     const joinedMembers = attendanceRows.filter((a) => ['resident', 'tenant'].includes(a.role)).length;
-    const joinedManagement = attendanceRows.filter((a) => ALL_MANAGEMENT.includes(a.role)).length;
+    const joinedManagement = attendanceRows.filter((a) => managementRoleSet.includes(a.role)).length;
 
     res.json({
       ...meeting.toJSON(),
       agendaItems,
       hasJoined: !!myAttendance,
       hasExited: !!(myAttendance && myAttendance.exitedAt),
+      managementRoleSet,
       attendance: {
         totalMembers: quorum.totalMembers,
         joinedMembers,
@@ -250,7 +281,7 @@ router.get(
       // implying they contributed to quorum - matches joinedMembers/
       // joinedManagement above, which already exclude them from the count.
       joiners: attendanceRows.map((a) => {
-        const isManagementRole = ALL_MANAGEMENT.includes(a.role);
+        const isManagementRole = managementRoleSet.includes(a.role);
         const matchesMeetingCategory = meeting.type === 'Committee' ? isManagementRole : !isManagementRole;
         return {
           _id: a.id,

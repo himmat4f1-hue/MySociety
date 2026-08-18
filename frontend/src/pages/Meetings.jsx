@@ -127,6 +127,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   const [busy, setBusy] = useState(false);
   const [votingId, setVotingId] = useState(null);
   const [optionModalAgenda, setOptionModalAgenda] = useState(null);
+  const [addingAgenda, setAddingAgenda] = useState(false);
+  const [newAgendaText, setNewAgendaText] = useState('');
+  const [savingAgenda, setSavingAgenda] = useState(false);
 
   const canManage = user?.role === 'secretary';
 
@@ -200,6 +203,37 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
     }
   };
 
+  // #3: when two-or-more options are tied for the top vote count, the
+  // Secretary picks the final decision by hand via a radio button.
+  const handleResolveTie = async (agendaId, label) => {
+    try {
+      await api.post(`/agenda-items/${agendaId}/resolve-tie`, { label });
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not set the final decision.');
+    }
+  };
+
+  // #1: Secretary can add a new agenda item to THIS meeting at any time -
+  // while it's still Upcoming, or even after it's already In Progress -
+  // not just during the original "Schedule Meeting" wizard.
+  const handleAddAgenda = async () => {
+    const text = newAgendaText.trim();
+    if (!text) return;
+    setSavingAgenda(true);
+    try {
+      await api.post('/agenda-items', { meeting: meeting._id, agenda: text });
+      setNewAgendaText('');
+      setAddingAgenda(false);
+      await load();
+      onChanged();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not add the agenda item.');
+    } finally {
+      setSavingAgenda(false);
+    }
+  };
+
   if (!detail) {
     return (
       <div className="card mt-4">
@@ -216,7 +250,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   // Voting rights (#2): General meeting -> only General members may vote;
   // Committee meeting -> only Management may vote. The voting table itself
   // is also hidden entirely until quorum is met (#1) - see below.
-  const canVote = isGeneral ? ['resident', 'tenant'].includes(user?.role) : MANAGEMENT_ROLES.includes(user?.role);
+  const canVote = isGeneral ? ['resident', 'tenant'].includes(user?.role) : (detail.managementRoleSet || MANAGEMENT_ROLES).includes(user?.role);
   const showVotingTable = status !== 'Upcoming' && quorumMet;
 
   return (
@@ -288,7 +322,35 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
         )}
       </div>
 
-      <p className="text-xs font-semibold text-slate-500 mb-2">Agenda Count: {agendaItems.length}</p>
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+        <p className="text-xs font-semibold text-slate-500">Agenda Count: {agendaItems.length}</p>
+        {/* #1: Secretary can add a new agenda item to this meeting any
+            time - Upcoming or already In Progress - not just while
+            originally scheduling it. */}
+        {canManage && ['Upcoming', 'In Progress'].includes(status) && !addingAgenda && (
+          <button onClick={() => setAddingAgenda(true)} className="text-xs text-brand-600 hover:text-brand-700 flex items-center gap-1">
+            <Plus size={13} /> Add Agenda Item
+          </button>
+        )}
+      </div>
+      {addingAgenda && (
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            autoFocus
+            className="input py-1.5 text-sm"
+            placeholder="e.g. Approve annual budget"
+            value={newAgendaText}
+            onChange={(e) => setNewAgendaText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAgenda())}
+          />
+          <button disabled={savingAgenda} onClick={handleAddAgenda} className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-60 flex items-center gap-1">
+            {savingAgenda && <Loader2 size={12} className="animate-spin" />} Save
+          </button>
+          <button onClick={() => { setAddingAgenda(false); setNewAgendaText(''); }} className="btn-secondary text-xs px-3 py-1.5 shrink-0">
+            Cancel
+          </button>
+        </div>
+      )}
       {agendaItems.length === 0 ? (
         <p className="text-sm text-slate-400 mb-4">No agenda items added yet.</p>
       ) : !showVotingTable ? (
@@ -352,9 +414,31 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
                       )}
                       <OptionSelectVote item={a} canVote={iAmEligibleVoter} hasJoined={hasJoined} onVote={handleVote} busy={votingId === a._id} hasVoted={a.hasVoted} />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
-                    </p>
+                    {/* #3: two-or-more options tied for the top vote count
+                        can't resolve themselves - the Secretary picks the
+                        final decision via radio buttons. Everyone else just
+                        sees that it's tied and awaiting a decision. */}
+                    {a.tiedOptions && a.tiedOptions.length > 1 ? (
+                      canManage ? (
+                        <div className="text-xs text-slate-500 mt-1.5 flex flex-wrap items-center gap-3">
+                          <span className="font-medium text-amber-600">Tied - pick final decision:</span>
+                          {a.tiedOptions.map((o) => (
+                            <label key={o.label} className="flex items-center gap-1 cursor-pointer">
+                              <input type="radio" name={`tie-${a._id}`} onChange={() => handleResolveTie(a._id, o.label)} />
+                              {o.label}(Votes={o.votes})
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Tied between {a.tiedOptions.map((o) => o.label).join(', ')} - awaiting Secretary's decision
+                        </p>
+                      )
+                    ) : (
+                      <p className="text-xs text-slate-400 mt-1">
+                        Decision: {a.decision && a.decision.votes > 0 ? <span className="text-slate-600 font-medium">{a.decision.label}(Votes={a.decision.votes})</span> : '—'}
+                      </p>
+                    )}
                   </td>
                 </tr>
               );
