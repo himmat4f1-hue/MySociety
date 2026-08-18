@@ -47,7 +47,6 @@ import {
   LifeBuoy,
   Scale,
   Droplets,
-  Gift,
 } from 'lucide-react';
 
 export const ALL_ROLES = [
@@ -115,7 +114,6 @@ export const NAV_ITEMS = [
   { name: 'Society Policies', path: '/app/policies', icon: ScrollText, roles: ALL_ROLES },
   { name: 'Investments & Assets', path: '/app/investments', icon: TrendingUp, roles: ['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member'] },
   { name: 'Funds', path: '/app/funds', icon: PiggyBank, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
-  { name: 'Celebration & Donation', path: '/app/celebration-donation', icon: Gift, roles: ALL_ROLES.filter((r) => r !== 'housekeeping') },
   { name: 'Reports', path: '/app/reports', icon: BarChart3, roles: ['accountant', 'secretary', 'chairman', 'treasurer'] },
   { name: 'Society Structure', path: '/app/society-structure', icon: Building2, roles: ['chairman', 'secretary'] },
   { name: 'Settings', path: '/app/settings', icon: Settings, roles: ['secretary', 'chairman'] },

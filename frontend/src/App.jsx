@@ -27,7 +27,6 @@ import Emergency from './pages/Emergency';
 // CameraRequests page retired - merged into Complaints & Requests (category="Camera")
 import Policies from './pages/Policies';
 import Investments from './pages/Investments';
-import Funds from './pages/Funds';
 import CelebrationDonation from './pages/CelebrationDonation';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -88,8 +87,14 @@ function App() {
       <Route path="/app/camera-requests" element={<Navigate to="/app/complaints" replace />} />
       <Route path="/app/policies" element={<ProtectedRoute><Policies /></ProtectedRoute>} />
       <Route path="/app/investments" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member']}><Investments /></ProtectedRoute>} />
-      <Route path="/app/funds" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><Funds /></ProtectedRoute>} />
-      <Route path="/app/celebration-donation" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><CelebrationDonation /></ProtectedRoute>} />
+      {/* "Funds" and the old separate "Celebration & Donation" menu were
+          merged into one - CelebrationDonation.jsx already manages
+          Celebration-type funds end-to-end, so a second generic Funds CRUD
+          page was redundant. /app/funds is now the merged page's path;
+          /app/celebration-donation redirects here for anyone with an old
+          bookmark/link. */}
+      <Route path="/app/funds" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><CelebrationDonation /></ProtectedRoute>} />
+      <Route path="/app/celebration-donation" element={<Navigate to="/app/funds" replace />} />
       <Route path="/app/reports" element={<ProtectedRoute roles={['accountant', 'secretary', 'chairman', 'treasurer']}><Reports /></ProtectedRoute>} />
       <Route path="/app/settings" element={<ProtectedRoute roles={['secretary', 'chairman']}><Settings /></ProtectedRoute>} />
       <Route path="/app/society-structure" element={<ProtectedRoute roles={['chairman', 'secretary']}><SocietyStructure /></ProtectedRoute>} />
