@@ -93,6 +93,24 @@ const AgendaItem = sequelize.define('AgendaItem', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // Optional file attached when the agenda item was created/edited (e.g. a
+  // supporting quote, photo, or document for that discussion point).
+  // Stored as a base64 data URL directly in the row - same pattern as
+  // User.photo - rather than a separate object-storage upload flow. No
+  // custom route needed: these just ride along as ordinary fields on the
+  // existing POST/PUT /agenda-items requests.
+  attachmentUrl: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  attachmentName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  attachmentType: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

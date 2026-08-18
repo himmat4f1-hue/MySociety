@@ -18,7 +18,11 @@ setupGuestCleanupJob();
 const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
-app.use(express.json());
+// Raised from Express's 100kb default - base64-encoded file attachments
+// (agenda item attachments, profile photos) easily exceed that on their
+// own. 10mb comfortably covers a several-MB source file once base64's
+// ~1.37x size overhead is factored in.
+app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'MySociety API running' }));

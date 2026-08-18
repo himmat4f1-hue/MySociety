@@ -19,6 +19,7 @@ import {
   Trash2,
   GripVertical,
   Check,
+  Paperclip,
 } from 'lucide-react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
@@ -35,6 +36,42 @@ const STATUS_STYLE = {
 };
 
 const MANAGEMENT_ROLES = ['secretary', 'chairman', 'treasurer', 'committee_member'];
+
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5MB raw -> ~6.8MB base64, safely under the server's 10mb JSON body limit
+
+// Converts a picked File into { dataUrl, name, type } for an agenda item's
+// attachment field, or throws a plain string message if it's too big.
+const readFileAsAttachment = (file) =>
+  new Promise((resolve, reject) => {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      reject(`File is too large (max ${(MAX_ATTACHMENT_BYTES / 1024 / 1024).toFixed(0)}MB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve({ dataUrl: reader.result, name: file.name, type: file.type });
+    reader.onerror = () => reject('Could not read that file.');
+    reader.readAsDataURL(file);
+  });
+
+// Small thumbnail/icon for an agenda item's attachment (if any), clickable
+// to open the file in a new tab. Images get a real thumbnail; anything
+// else (PDF, doc, etc.) gets a generic file icon - the browser handles
+// opening/downloading a data: URL either way.
+const AttachmentThumb = ({ url, name, type }) => {
+  if (!url) return <span className="text-slate-300">—</span>;
+  const isImage = (type || '').startsWith('image/');
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title={name || 'Attachment'} className="inline-block">
+      {isImage ? (
+        <img src={url} alt={name || 'attachment'} className="w-9 h-9 rounded object-cover border border-slate-200" />
+      ) : (
+        <span className="w-9 h-9 rounded border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 hover:text-brand-600">
+          <FileText size={16} />
+        </span>
+      )}
+    </a>
+  );
+};
 
 // Vote UI for one agenda row. The select box (showing every option with its
 // live vote count) is ALWAYS visible to everyone, including the Secretary -
@@ -129,6 +166,8 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
   const [optionModalAgenda, setOptionModalAgenda] = useState(null);
   const [addingAgenda, setAddingAgenda] = useState(false);
   const [newAgendaText, setNewAgendaText] = useState('');
+  const [newAgendaAttachment, setNewAgendaAttachment] = useState(null); // { dataUrl, name, type }
+  const [attachmentError, setAttachmentError] = useState('');
   const [savingAgenda, setSavingAgenda] = useState(false);
 
   const canManage = user?.role === 'secretary';
@@ -222,8 +261,16 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
     if (!text) return;
     setSavingAgenda(true);
     try {
-      await api.post('/agenda-items', { meeting: meeting._id, agenda: text });
+      await api.post('/agenda-items', {
+        meeting: meeting._id,
+        agenda: text,
+        attachmentUrl: newAgendaAttachment?.dataUrl || null,
+        attachmentName: newAgendaAttachment?.name || null,
+        attachmentType: newAgendaAttachment?.type || null,
+      });
       setNewAgendaText('');
+      setNewAgendaAttachment(null);
+      setAttachmentError('');
       setAddingAgenda(false);
       await load();
       onChanged();
@@ -231,6 +278,16 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
       alert(err.response?.data?.message || 'Could not add the agenda item.');
     } finally {
       setSavingAgenda(false);
+    }
+  };
+
+  const handlePickAttachment = async (file) => {
+    if (!file) return;
+    setAttachmentError('');
+    try {
+      setNewAgendaAttachment(await readFileAsAttachment(file));
+    } catch (msg) {
+      setAttachmentError(msg);
     }
   };
 
@@ -334,21 +391,39 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
         )}
       </div>
       {addingAgenda && (
-        <div className="flex items-center gap-2 mb-3">
-          <input
-            autoFocus
-            className="input py-1.5 text-sm"
-            placeholder="e.g. Approve annual budget"
-            value={newAgendaText}
-            onChange={(e) => setNewAgendaText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAgenda())}
-          />
-          <button disabled={savingAgenda} onClick={handleAddAgenda} className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-60 flex items-center gap-1">
-            {savingAgenda && <Loader2 size={12} className="animate-spin" />} Save
-          </button>
-          <button onClick={() => { setAddingAgenda(false); setNewAgendaText(''); }} className="btn-secondary text-xs px-3 py-1.5 shrink-0">
-            Cancel
-          </button>
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              className="input py-1.5 text-sm"
+              placeholder="e.g. Approve annual budget"
+              value={newAgendaText}
+              onChange={(e) => setNewAgendaText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAgenda())}
+            />
+            <label className="btn-secondary text-xs px-2.5 py-1.5 shrink-0 flex items-center gap-1 cursor-pointer" title="Attach a file">
+              <Paperclip size={13} />
+              <input type="file" className="hidden" onChange={(e) => handlePickAttachment(e.target.files?.[0])} />
+            </label>
+            <button disabled={savingAgenda} onClick={handleAddAgenda} className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-60 flex items-center gap-1">
+              {savingAgenda && <Loader2 size={12} className="animate-spin" />} Save
+            </button>
+            <button
+              onClick={() => { setAddingAgenda(false); setNewAgendaText(''); setNewAgendaAttachment(null); setAttachmentError(''); }}
+              className="btn-secondary text-xs px-3 py-1.5 shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+          {newAgendaAttachment && (
+            <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+              <Paperclip size={11} /> {newAgendaAttachment.name}
+              <button onClick={() => setNewAgendaAttachment(null)} className="text-slate-400 hover:text-red-500 ml-1">
+                <Trash2 size={11} />
+              </button>
+            </p>
+          )}
+          {attachmentError && <p className="text-xs text-red-600 mt-1">{attachmentError}</p>}
         </div>
       )}
       {agendaItems.length === 0 ? (
@@ -361,6 +436,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             <tr className="text-slate-400 text-left border-b border-slate-100">
               <th className="font-medium pb-1.5 w-12">Sr.</th>
               <th className="font-medium pb-1.5">Agenda</th>
+              <th className="font-medium pb-1.5 w-20">Attachment</th>
             </tr>
           </thead>
           <tbody>
@@ -368,6 +444,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
               <tr key={a._id} className="border-b border-slate-50 last:border-0">
                 <td className="py-1.5 text-slate-500">{i + 1}</td>
                 <td className="py-1.5 text-slate-700">{a.agenda}</td>
+                <td className="py-1.5">
+                  <AttachmentThumb url={a.attachmentUrl} name={a.attachmentName} type={a.attachmentType} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -378,6 +457,7 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
             <tr className="text-slate-400 text-left border-b border-slate-100">
               <th className="font-medium pb-1.5 w-8">Sr.</th>
               <th className="font-medium pb-1.5">Agenda</th>
+              <th className="font-medium pb-1.5 w-20">Attachment</th>
               {/* Decision now renders under the Vote cell itself, so no
                   separate Decision column is needed (#4). */}
               <th className="font-medium pb-1.5">Vote</th>
@@ -395,6 +475,9 @@ const MeetingDetail = ({ meeting, onClose, onChanged, user }) => {
                 <tr key={a._id} className="border-b border-slate-50 last:border-0">
                   <td className="py-2 text-slate-500">{i + 1}</td>
                   <td className="py-2 text-slate-700">{a.agenda}</td>
+                  <td className="py-2">
+                    <AttachmentThumb url={a.attachmentUrl} name={a.attachmentName} type={a.attachmentType} />
+                  </td>
                   <td className="py-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {canManage && (
@@ -558,8 +641,10 @@ const MAX_DESCRIPTION = 500;
 const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
   const [tab, setTab] = useState(1);
   const [values, setValues] = useState({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '', description: '' });
-  const [agendaList, setAgendaList] = useState([]); // [{ text }]
+  const [agendaList, setAgendaList] = useState([]); // [{ text, attachment: null | {dataUrl,name,type} }]
   const [agendaDraft, setAgendaDraft] = useState('');
+  const [agendaDraftAttachment, setAgendaDraftAttachment] = useState(null);
+  const [agendaAttachmentError, setAgendaAttachmentError] = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingText, setEditingText] = useState('');
   const [dragIdx, setDragIdx] = useState(null);
@@ -571,6 +656,8 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
       setValues({ title: '', type: 'General', priority: 'Medium', date: '', time: '', location: '', description: '' });
       setAgendaList([]);
       setAgendaDraft('');
+      setAgendaDraftAttachment(null);
+      setAgendaAttachmentError('');
       setEditingIdx(null);
     }
   }, [open]);
@@ -582,21 +669,32 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
   const addAgenda = () => {
     const text = agendaDraft.trim();
     if (!text) return;
-    setAgendaList([...agendaList, text]);
+    setAgendaList([...agendaList, { text, attachment: agendaDraftAttachment }]);
     setAgendaDraft('');
+    setAgendaDraftAttachment(null);
+  };
+
+  const handlePickDraftAttachment = async (file) => {
+    if (!file) return;
+    setAgendaAttachmentError('');
+    try {
+      setAgendaDraftAttachment(await readFileAsAttachment(file));
+    } catch (msg) {
+      setAgendaAttachmentError(msg);
+    }
   };
 
   const removeAgenda = (idx) => setAgendaList(agendaList.filter((_, i) => i !== idx));
 
   const startEdit = (idx) => {
     setEditingIdx(idx);
-    setEditingText(agendaList[idx]);
+    setEditingText(agendaList[idx].text);
   };
 
   const saveEdit = (idx) => {
     const text = editingText.trim();
     if (!text) return;
-    setAgendaList(agendaList.map((a, i) => (i === idx ? text : a)));
+    setAgendaList(agendaList.map((a, i) => (i === idx ? { ...a, text } : a)));
     setEditingIdx(null);
   };
 
@@ -718,10 +816,23 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
                   onChange={(e) => setAgendaDraft(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgenda())}
                 />
+                <label className="btn-secondary px-2.5 shrink-0 flex items-center gap-1 cursor-pointer" title="Attach a file">
+                  <Paperclip size={15} />
+                  <input type="file" className="hidden" onChange={(e) => handlePickDraftAttachment(e.target.files?.[0])} />
+                </label>
                 <button type="button" onClick={addAgenda} className="btn-secondary px-3 shrink-0 flex items-center gap-1">
                   <Plus size={15} /> Add Agenda
                 </button>
               </div>
+              {agendaDraftAttachment && (
+                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                  <Paperclip size={11} /> {agendaDraftAttachment.name}
+                  <button type="button" onClick={() => setAgendaDraftAttachment(null)} className="text-slate-400 hover:text-red-500 ml-1">
+                    <Trash2 size={11} />
+                  </button>
+                </p>
+              )}
+              {agendaAttachmentError && <p className="text-xs text-red-600 mt-1">{agendaAttachmentError}</p>}
 
               {agendaList.length > 0 && (
                 <ul className="mt-2 space-y-1">
@@ -745,8 +856,9 @@ const ScheduleMeetingModal = ({ open, onClose, onSubmit }) => {
                             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), saveEdit(i))}
                           />
                         ) : (
-                          <span className="text-slate-700 truncate">
-                            {i + 1}. {a}
+                          <span className="text-slate-700 truncate flex items-center gap-1.5">
+                            {i + 1}. {a.text}
+                            {a.attachment && <Paperclip size={12} className="text-emerald-500 shrink-0" title={a.attachment.name} />}
                           </span>
                         )}
                       </span>
@@ -819,9 +931,15 @@ const Meetings = () => {
     const res = await api.post('/meetings', meetingFields);
     const newMeetingId = res.data.id;
     // Create each agenda item added in the "Add Agenda" list, linked to the
-    // meeting just created.
-    for (const agendaText of agendaList) {
-      await api.post('/agenda-items', { meeting: newMeetingId, agenda: agendaText });
+    // meeting just created - including its attachment, if one was picked.
+    for (const item of agendaList) {
+      await api.post('/agenda-items', {
+        meeting: newMeetingId,
+        agenda: item.text,
+        attachmentUrl: item.attachment?.dataUrl || null,
+        attachmentName: item.attachment?.name || null,
+        attachmentType: item.attachment?.type || null,
+      });
     }
     await load();
   };
