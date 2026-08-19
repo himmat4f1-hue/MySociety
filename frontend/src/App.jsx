@@ -30,8 +30,7 @@ import Tasks from './pages/Tasks';
 import Supplies from './pages/Supplies';
 import Leases from './pages/Leases';
 import Pets from './pages/Pets';
-import FlatOwners from './pages/FlatOwners';
-import FamilyMembers from './pages/FamilyMembers';
+import FamilyPersonalData from './pages/FamilyPersonalData';
 import Vehicles from './pages/VehiclesHub';
 import HomeServices from './pages/HomeServices';
 import RoleChecklistPage from './pages/RoleChecklistPage';
@@ -104,8 +103,11 @@ function App() {
       <Route path="/app/supplies" element={<ProtectedRoute roles={['secretary', 'chairman', 'housekeeping']}><Supplies /></ProtectedRoute>} />
       <Route path="/app/leases" element={<ProtectedRoute roles={['secretary', 'chairman', 'committee_member', 'tenant']}><Leases /></ProtectedRoute>} />
       <Route path="/app/pets" element={<ProtectedRoute roles={['security', 'resident', 'secretary', 'chairman', 'committee_member', 'tenant']}><Pets /></ProtectedRoute>} />
-      <Route path="/app/flat-owners" element={<ProtectedRoute roles={['secretary', 'chairman', 'resident', 'tenant']}><FlatOwners /></ProtectedRoute>} />
-      <Route path="/app/family-members" element={<ProtectedRoute roles={['secretary', 'chairman', 'resident', 'tenant']}><FamilyMembers /></ProtectedRoute>} />
+      {/* Personal Data (FlatOwners) and Family Data (FamilyMembers) merged
+          into one building-wise directory - old links redirect there. */}
+      <Route path="/app/family-data" element={<ProtectedRoute roles={['secretary', 'chairman', 'resident', 'tenant']}><FamilyPersonalData /></ProtectedRoute>} />
+      <Route path="/app/flat-owners" element={<Navigate to="/app/family-data" replace />} />
+      <Route path="/app/family-members" element={<Navigate to="/app/family-data" replace />} />
       <Route path="/app/vehicles" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant', 'housekeeping']}><Vehicles /></ProtectedRoute>} />
       {/* Parking merged into Vehicle Data as a tab - old links redirect there. */}
       <Route path="/app/parking" element={<Navigate to="/app/vehicles" replace />} />

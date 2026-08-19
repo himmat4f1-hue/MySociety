@@ -24,7 +24,6 @@ import {
   Boxes,
   FileSignature,
   PawPrint,
-  CreditCard,
   Users2,
   Car,
   HomeIcon,
@@ -62,8 +61,7 @@ export const NAV_ITEMS = [
   { name: 'List Property for Sale', path: '/app/list-property', icon: Tag, roles: ['resident', 'tenant'] },
   { name: 'Pets', path: '/app/pets', icon: PawPrint, roles: ALL_ROLES.filter((r) => !['housekeeping', 'accountant', 'treasurer'].includes(r)) },
 
-  { name: 'Personal Data', path: '/app/flat-owners', icon: CreditCard, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
-  { name: 'Family Data', path: '/app/family-members', icon: Users2, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
+  { name: 'Family & Personal Data', path: '/app/family-data', icon: Users2, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
   { name: 'Vehicles & Parking', path: '/app/vehicles', icon: Car, roles: ALL_ROLES },
   { name: 'Home Services', path: '/app/home-services', icon: HomeIcon, roles: ['secretary', 'chairman', 'resident', 'tenant'] },
   { name: 'Role Checklist', path: '/app/role-checklist', icon: ClipboardCheck, roles: ALL_ROLES },
