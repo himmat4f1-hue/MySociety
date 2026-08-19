@@ -21,5 +21,5 @@ const config = {
   ],
 };
 
-const Policies = () => <ModuleListPage config={config} />;
+const Policies = () => <ModuleListPage config={config} bare />;
 export default Policies;

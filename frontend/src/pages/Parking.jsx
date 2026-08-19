@@ -26,5 +26,5 @@ const config = {
   ],
 };
 
-const Parking = () => <ModuleListPage config={config} />;
+const Parking = () => <ModuleListPage config={config} bare />;
 export default Parking;

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { BarChart3, FileText, Download, Crown, Wallet, ListChecks, Loader2 } from 'lucide-react';
 import api from '../api/axios';
-import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import { downloadCsv } from '../utils/csvExport';
 
@@ -70,11 +69,7 @@ const Reports = () => {
   };
 
   if (!counts || !perf) {
-    return (
-      <Layout title="Reports">
-        <p className="text-slate-400">Loading reports...</p>
-      </Layout>
-    );
+    return <p className="text-slate-400">Loading reports...</p>;
   }
 
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -84,7 +79,7 @@ const Reports = () => {
   }));
 
   return (
-    <Layout title="Reports" subtitle="Generate and download real, current reports across every module">
+    <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard icon={BarChart3} label="Available Reports" value={REPORT_DEFS.length} color="blue" />
         <StatCard icon={FileText} label="Total Records Tracked" value={total} color="green" />
@@ -198,7 +193,7 @@ const Reports = () => {
           </ResponsiveContainer>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

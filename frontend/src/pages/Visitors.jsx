@@ -54,5 +54,5 @@ const config = {
   ],
 };
 
-const Visitors = () => <ModuleListPage config={config} />;
+const Visitors = () => <ModuleListPage config={config} bare />;
 export default Visitors;

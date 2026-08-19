@@ -38,5 +38,5 @@ const config = {
   ],
 };
 
-const Vehicles = () => <ModuleListPage config={config} />;
+const Vehicles = () => <ModuleListPage config={config} bare />;
 export default Vehicles;

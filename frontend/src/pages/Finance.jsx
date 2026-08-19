@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Legend } from 'recharts';
 import { Wallet, Clock, TrendingDown, AlertCircle, Plus } from 'lucide-react';
 import api from '../api/axios';
-import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import FormModal from '../components/FormModal';
@@ -60,7 +59,7 @@ const Finance = () => {
   };
 
   return (
-    <Layout title="Finance Dashboard" subtitle="Manage collections, payments, expenses, and account summaries">
+    <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard icon={Wallet} label="Total Collection" value={inr(totalCollection)} color="green" />
         <StatCard icon={Clock} label="Total Pending" value={inr(totalPending)} color="amber" />
@@ -184,7 +183,7 @@ const Finance = () => {
           { name: 'flatNo', label: 'Flat No. (optional)' },
         ]}
       />
-    </Layout>
+    </>
   );
 };
 

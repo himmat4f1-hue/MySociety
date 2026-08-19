@@ -18,7 +18,7 @@ import { downloadCsv } from '../utils/csvExport';
 //   formFields: [...] (for FormModal, used for both add & edit),
 //   canWrite: (role) => bool
 // }
-const ModuleListPage = ({ config }) => {
+const ModuleListPage = ({ config, bare = false }) => {
   const { user } = useAuth();
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -128,8 +128,15 @@ const ModuleListPage = ({ config }) => {
 
   const pages = Math.ceil(total / limit) || 1;
 
+  // `bare` mode (used when several ModuleListPage instances are combined
+  // under one merged nav item via TabbedPage) skips the <Layout> wrapper -
+  // the parent TabbedPage supplies a single shared Layout/sidebar/header
+  // instead, so nesting another one here would duplicate/hide it.
+  const Wrapper = bare ? React.Fragment : Layout;
+  const wrapperProps = bare ? {} : { title: config.title, subtitle: config.subtitle };
+
   return (
-    <Layout title={config.title} subtitle={config.subtitle}>
+    <Wrapper {...wrapperProps}>
       {config.statCards && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {config.statCards.map((sc) => (
@@ -271,7 +278,7 @@ const ModuleListPage = ({ config }) => {
           title={editingItem ? `Edit ${config.title}` : `Add ${config.title}`}
         />
       )}
-    </Layout>
+    </Wrapper>
   );
 };
 

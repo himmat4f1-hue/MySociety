@@ -24,5 +24,5 @@ const config = {
   ],
 };
 
-const Rules = () => <ModuleListPage config={config} />;
+const Rules = () => <ModuleListPage config={config} bare />;
 export default Rules;

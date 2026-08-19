@@ -30,5 +30,5 @@ const config = {
   ],
 };
 
-const Voting = () => <ModuleListPage config={config} />;
+const Voting = () => <ModuleListPage config={config} bare />;
 export default Voting;

@@ -29,5 +29,5 @@ const config = {
   ],
 };
 
-const Documents = () => <ModuleListPage config={config} />;
+const Documents = () => <ModuleListPage config={config} bare />;
 export default Documents;

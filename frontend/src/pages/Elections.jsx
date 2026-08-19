@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Vote, Trophy, Info } from 'lucide-react';
 import api from '../api/axios';
-import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 
 const MANAGEMENT_ROLES = ['Chairman', 'Secretary', 'Accountant', 'Treasurer'];
@@ -65,7 +64,7 @@ const Elections = () => {
   };
 
   return (
-    <Layout title="Elections & Voting" subtitle="Votes are anonymous - only aggregated counts are ever shown, never who voted for whom">
+    <>
       <div className="flex border-b border-slate-200 mb-6">
         {[
           { id: 'committee', label: 'Vote for Committee Member' },
@@ -198,7 +197,7 @@ const Elections = () => {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 };
 

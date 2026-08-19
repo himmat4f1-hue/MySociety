@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Wallet, Landmark, Info } from 'lucide-react';
 import api from '../api/axios';
-import Layout from '../components/Layout';
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -31,7 +30,7 @@ const FinancialStatements = () => {
   }, [startDate, endDate]);
 
   return (
-    <Layout title="Financial Statements" subtitle="Profit & Loss, Cash Flow, and Balance Sheet">
+    <>
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <label className="text-sm text-slate-500">From</label>
         <input type="date" className="input w-auto" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -132,7 +131,7 @@ const FinancialStatements = () => {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 };
 

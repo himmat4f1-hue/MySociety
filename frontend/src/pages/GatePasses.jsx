@@ -36,5 +36,5 @@ const config = {
   ],
 };
 
-const GatePasses = () => <ModuleListPage config={config} />;
+const GatePasses = () => <ModuleListPage config={config} bare />;
 export default GatePasses;

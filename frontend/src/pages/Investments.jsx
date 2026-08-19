@@ -28,5 +28,5 @@ const config = {
   ],
 };
 
-const Investments = () => <ModuleListPage config={config} />;
+const Investments = () => <ModuleListPage config={config} bare />;
 export default Investments;
