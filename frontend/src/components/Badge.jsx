@@ -18,6 +18,7 @@ const STATUS_STYLES = {
   Scheduled: 'bg-amber-100 text-amber-700',
   Archived: 'bg-slate-200 text-slate-600',
   Available: 'bg-green-100 text-green-700',
+  'Not Available': 'bg-slate-200 text-slate-600',
   'Under Maintenance': 'bg-amber-100 text-amber-700',
   'Out of Service': 'bg-red-100 text-red-700',
   Paid: 'bg-green-100 text-green-700',

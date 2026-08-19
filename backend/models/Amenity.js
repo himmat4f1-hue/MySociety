@@ -17,9 +17,13 @@ const Amenity = sequelize.define('Amenity', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  // No longer collected in the simplified Amenities UI (Photo/Name/Status/
+  // Rules only) - kept nullable rather than removed so existing data and
+  // any other code path that still reads it doesn't break.
   type: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
+    defaultValue: 'General',
   },
   building: {
     type: DataTypes.STRING,
@@ -32,7 +36,7 @@ const Amenity = sequelize.define('Amenity', {
     defaultValue: '',
   },
   status: {
-    type: DataTypes.ENUM('Available', 'Under Maintenance', 'Out of Service'),
+    type: DataTypes.ENUM('Available', 'Not Available', 'Under Maintenance', 'Out of Service'),
     defaultValue: 'Available',
   },
   availability: {
@@ -53,6 +57,13 @@ const Amenity = sequelize.define('Amenity', {
   photo: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  // Amenity-specific rules, shown via the "Click here" link in the Rules
+  // column and editable by the Secretary in that same card - array of
+  // plain strings, one per rule line.
+  rules: {
+    type: DataTypes.JSONB,
+    defaultValue: [],
   },
   // array of {resident, residentName, date, fromTime, toTime, status}
   bookings: {
