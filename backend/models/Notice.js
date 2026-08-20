@@ -48,6 +48,12 @@ const Notice = sequelize.define('Notice', {
     type: DataTypes.UUID,
     allowNull: true,
   },
+  // Multiple attachments per notice - array of {url, name, type} (same
+  // base64-data-URL pattern used elsewhere, e.g. AgendaItem attachments).
+  attachments: {
+    type: DataTypes.JSONB,
+    defaultValue: [],
+  },
 }, {
   timestamps: true,
 });
