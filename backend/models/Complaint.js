@@ -75,6 +75,13 @@ const Complaint = sequelize.define('Complaint', {
     type: DataTypes.INTEGER, // 1-5, filled in by the raiser after resolution
     allowNull: true,
   },
+  // Secretary's reply to this complaint/request - one of the only 3 fields
+  // (alongside status and resolvedOn/"Closing Date") the Secretary is
+  // allowed to edit after it's been raised. See routes/complaintRoutes.js.
+  response: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });

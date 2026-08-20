@@ -85,7 +85,7 @@ export const NAV_ITEMS = [
   { name: 'Units / Flats', path: '/app/units', icon: Building2, roles: ['secretary', 'chairman'] },
   { name: 'Finance', path: '/app/finance', icon: Wallet, roles: ['accountant', 'secretary', 'chairman', 'treasurer', 'committee_member'] },
   { name: 'Visitors & Gate Passes', path: '/app/visitors', icon: UserCheck, roles: ['security', 'secretary', 'chairman', 'resident', 'tenant'] },
-  { name: 'Complaints', path: '/app/complaints', icon: MessageSquareWarning, roles: ALL_ROLES },
+  { name: 'Complaint/Request', path: '/app/complaints', icon: MessageSquareWarning, roles: ALL_ROLES },
   { name: 'Maintenance', path: '/app/maintenance', icon: Wrench, roles: ALL_ROLES },
   { name: 'Notice Board', path: '/app/notices', icon: Megaphone, roles: ALL_ROLES },
   { name: 'Amenities', path: '/app/amenities', icon: Dumbbell, roles: ALL_ROLES },
