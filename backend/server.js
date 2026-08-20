@@ -38,6 +38,8 @@ app.use('/api/units', require('./routes/unitRoutes'));
 app.use('/api/visitors', require('./routes/visitorRoutes'));
 app.use('/api/complaints', require('./routes/complaintRoutes'));
 app.use('/api/maintenance', require('./routes/maintenanceRoutes'));
+app.use('/api/maintenance-schedule', require('./routes/maintenanceScheduleRoutes'));
+app.use('/api/maintenance-payments', require('./routes/maintenancePaymentRoutes'));
 app.use('/api/notices', require('./routes/noticeRoutes'));
 app.use('/api/amenities', require('./routes/amenityRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));

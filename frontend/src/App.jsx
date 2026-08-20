@@ -16,7 +16,7 @@ import Units from './pages/Units';
 import Finance from './pages/FinanceHub';
 import Visitors from './pages/VisitorsHub';
 import Complaints from './pages/Complaints';
-import Maintenance from './pages/Maintenance';
+import MaintenanceCharges from './pages/MaintenanceCharges';
 import Notices from './pages/Notices';
 import Amenities from './pages/Amenities';
 import Meetings from './pages/Meetings';
@@ -74,7 +74,10 @@ function App() {
       {/* Gate Passes merged into Visitors as a tab - old links redirect there. */}
       <Route path="/app/gate-passes" element={<Navigate to="/app/visitors" replace />} />
       <Route path="/app/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
-      <Route path="/app/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
+      {/* Old repair-ticket "Maintenance" page replaced with "Maintenance
+          Charges" (dues/schedule/payments) at the same nav slot/path - see
+          backend/models/MaintenanceSchedule.js and MaintenancePayment.js. */}
+      <Route path="/app/maintenance" element={<ProtectedRoute><MaintenanceCharges /></ProtectedRoute>} />
       <Route path="/app/notices" element={<ProtectedRoute><Notices /></ProtectedRoute>} />
       <Route path="/app/amenities" element={<ProtectedRoute><Amenities /></ProtectedRoute>} />
       <Route path="/app/meetings" element={<ProtectedRoute roles={['security', 'resident', 'accountant', 'secretary', 'chairman', 'treasurer', 'committee_member', 'tenant']}><Meetings /></ProtectedRoute>} />
