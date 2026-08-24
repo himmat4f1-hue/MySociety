@@ -25,6 +25,19 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  // FK -> Building / Floor (nullable - only set for flats created via the
+  // Society Setup wizard's Building/Floor/Flat builder; tower/floor above
+  // stay as the plain display strings the rest of the app already reads
+  // everywhere, kept in sync whenever the linked Building/Floor is renamed -
+  // see routes/societySetupRoutes.js).
+  buildingId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
+  floorId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
   type: {
     type: DataTypes.STRING,
     allowNull: false,

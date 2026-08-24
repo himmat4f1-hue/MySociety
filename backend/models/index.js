@@ -21,6 +21,7 @@ const Society = require('./Society');
 const Resident = require('./Resident');
 const Unit = require('./Unit');
 const Building = require('./Building');
+const Floor = require('./Floor');
 const FlatOwner = require('./FlatOwner');
 const Pet = require('./Pet');
 const Visitor = require('./Visitor');
@@ -78,6 +79,7 @@ module.exports = {
   Resident,
   Unit,
   Building,
+  Floor,
   FlatOwner,
   Pet,
   Visitor,

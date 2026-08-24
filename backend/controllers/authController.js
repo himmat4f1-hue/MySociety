@@ -4,7 +4,6 @@ const User = require('../models/User');
 const Society = require('../models/Society');
 const Plan = require('../models/Plan');
 const Membership = require('../models/Membership');
-const provisionUnits = require('../utils/provisionUnits');
 const seedGuestSandbox = require('../utils/demoData');
 
 const slugify = (str) =>
@@ -37,78 +36,118 @@ const issueSessionResponse = async (user, membership) => {
     tower: membership.tower || null,
     flatId: membership.flatId || null,
     avatar: user.avatar,
-    society: { _id: society.id, name: society.name, slug: society.slug, isGuestSandbox: society.isGuestSandbox, expiresAt: society.expiresAt },
+    society: {
+      _id: society.id,
+      name: society.name,
+      slug: society.slug,
+      zipCode: society.zipCode || null,
+      isSetupComplete: society.isSetupComplete,
+      isGuestSandbox: society.isGuestSandbox,
+      expiresAt: society.expiresAt,
+    },
     token,
   };
 };
 
-// @desc  Step 1 of creating a brand-new society (used by the Plans & Offers "Get
-// Started" flow). Creates the Society, auto-provisions its Units, and creates
-// (or reuses) the requester's User account with a Chairman membership - there
-// is no separate "admin" account; whoever sets up the society becomes its Chairman.
+// @desc  Registration Step 1: check whether a society is already listed
+// under this exact (name, zipCode) pair - a society's public "listing" is
+// that combination, so two societies can't share it.
+// @route POST /api/auth/check-society-availability
+const checkSocietyAvailability = asyncHandler(async (req, res) => {
+  const { societyName, zipCode } = req.body;
+  if (!societyName || !zipCode) {
+    return res.status(400).json({ message: 'Society name and zip code are required.' });
+  }
+  const { Op, fn, col, where: sqWhere } = require('sequelize');
+  const match = await Society.findOne({
+    where: {
+      [Op.and]: [sqWhere(fn('lower', col('name')), societyName.trim().toLowerCase()), sqWhere(fn('lower', col('zipCode')), String(zipCode).trim().toLowerCase())],
+    },
+  });
+  res.json({ available: !match });
+});
+
+// @desc  Registration Step 2 (mobile verification) - demo-mode OTP send.
+// Unlike requestOtp (login), this does NOT require an existing User, since
+// the account doesn't exist yet at this point in registration.
+// @route POST /api/auth/register/send-otp
+const registerSendOtp = asyncHandler(async (req, res) => {
+  const { mobile } = req.body;
+  if (!mobile) {
+    return res.status(400).json({ message: 'Mobile number is required.' });
+  }
+  res.json({ message: 'OTP sent.', demoOtp: DEMO_OTP });
+});
+
+// @desc  Registration Step 2b - verify the demo OTP. Stateless (no DB
+// lookup) since there's no account yet to check it against.
+// @route POST /api/auth/register/verify-otp
+const registerVerifyOtp = asyncHandler(async (req, res) => {
+  const { mobile, otp } = req.body;
+  if (!mobile || !otp) {
+    return res.status(400).json({ message: 'Mobile number and OTP are required.' });
+  }
+  if (otp !== DEMO_OTP) {
+    return res.status(400).json({ message: 'Incorrect OTP. Please try again.' });
+  }
+  res.json({ verified: true });
+});
+
+// @desc  Registration Step 4 (final): creates the Society (Trial status, no
+// buildings/units yet - those are added afterward via the Society Setup
+// wizard, see routes/societySetupRoutes.js) and a brand-new User with a
+// Secretary membership - whoever registers a society is its Secretary, not
+// its Chairman (Chairman is invited/added separately afterward). No
+// password is collected - this account is OTP-only, matching the mobile
+// login flow, so a random unusable password is generated internally (same
+// pattern as guestLogin).
 // @route POST /api/auth/register-society
 const registerSociety = asyncHandler(async (req, res) => {
-  const {
-    societyName,
-    city,
-    societyType, // 'Apartment' | 'IndividualHouses'
-    buildingsCount,
-    flatsPerBuilding,
-    housesCount,
-    planSlug,
-    adminName,
-    adminEmail,
-    adminPassword,
-  } = req.body;
+  const { societyName, zipCode, adminName, mobile, planSlug } = req.body;
 
-  const type = societyType === 'IndividualHouses' ? 'IndividualHouses' : 'Apartment';
+  if (!societyName || !zipCode || !adminName || !mobile) {
+    return res.status(400).json({ message: 'Society name, zip code, name, and mobile number are all required.' });
+  }
 
-  if (!societyName || !adminName || !adminEmail) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-  if (type === 'Apartment' && (!buildingsCount || !flatsPerBuilding)) {
-    return res.status(400).json({ message: 'buildingsCount and flatsPerBuilding are required for an Apartment society' });
-  }
-  if (type === 'IndividualHouses' && !housesCount) {
-    return res.status(400).json({ message: 'housesCount is required for an Individual Houses society' });
+  const { Op, fn, col, where: sqWhere } = require('sequelize');
+  const clash = await Society.findOne({
+    where: {
+      [Op.and]: [sqWhere(fn('lower', col('name')), societyName.trim().toLowerCase()), sqWhere(fn('lower', col('zipCode')), String(zipCode).trim().toLowerCase())],
+    },
+  });
+  if (clash) {
+    return res.status(400).json({ message: 'Not Available. A society with this name and zip code is already registered.' });
   }
 
   const plan = planSlug ? await Plan.findOne({ where: { slug: planSlug } }) : null;
-  const totalFlats = type === 'Apartment' ? Number(buildingsCount) * Number(flatsPerBuilding) : Number(housesCount);
 
   const slug = await makeUniqueSlug(societyName);
   const society = await Society.create({
     name: societyName,
     slug,
-    city: city || '',
-    type,
-    buildingsCount: type === 'Apartment' ? Number(buildingsCount) : 0,
-    totalFlats,
+    zipCode: String(zipCode).trim(),
     plan: plan ? plan.id : null,
     status: 'Trial',
+    buildingsCount: 0,
+    totalFlats: 0,
+    isSetupComplete: false,
   });
 
-  if (type === 'Apartment') {
-    await provisionUnits(society.id, Number(buildingsCount), Number(flatsPerBuilding));
-  } else {
-    await provisionUnits.provisionHouses(society.id, Number(housesCount));
-  }
-
-  // Re-use the User account if this email already exists on the platform (multi-society support)
-  let user = await User.findOne({ where: { email: String(adminEmail).toLowerCase().trim() } });
+  // Re-use the User account if this mobile number already exists on the
+  // platform (someone registering a second society), otherwise create a
+  // fresh OTP-only account (random unusable password, same as guestLogin).
+  let user = await User.findOne({ where: { phone: String(mobile).trim() } });
   if (!user) {
-    if (!adminPassword) {
-      return res.status(400).json({ message: 'Password is required to create a new account' });
-    }
-    user = await User.create({ name: adminName, email: adminEmail, password: adminPassword, role: 'chairman' });
+    user = await User.create({
+      name: adminName,
+      email: `${String(mobile).trim()}@phone.mysociety.local`,
+      phone: String(mobile).trim(),
+      password: Math.random().toString(36).slice(2) + 'Aa1!',
+      role: 'secretary',
+    });
   }
 
-  const existingMembership = await Membership.findOne({ where: { user: user.id, society: society.id, role: 'chairman' } });
-  if (existingMembership) {
-    return res.status(400).json({ message: 'You are already the Chairman of this society' });
-  }
-
-  const membership = await Membership.create({ user: user.id, society: society.id, role: 'chairman' });
+  const membership = await Membership.create({ user: user.id, society: society.id, role: 'secretary' });
 
   const session = await issueSessionResponse(user, membership);
   res.status(201).json(session);
@@ -194,17 +233,18 @@ const switchAccount = asyncHandler(async (req, res) => {
 // (and store a per-request, expiring code) before using this in production.
 const DEMO_OTP = '123456';
 
-// Given a User row, returns EITHER { session } if they have exactly one
-// active society/role/flat ("account"), or { options } listing every account
-// they have (grouped-ready) if they have more than one. Shared by the OTP
-// login flow below.
+// Given a User row, returns { options } listing every active
+// society/role/flat combination ("account") they have - even if there's
+// only one. The person always sees this list first after OTP verification
+// (not auto-logged straight in) because a freshly-registered account with
+// isSetupComplete: false needs to land on the Society Setup wizard when
+// they tap it, not the normal dashboard - the frontend decides which based
+// on each option's isSetupComplete flag. Call verify-otp again with the
+// chosen membershipId to actually get a session for it.
 const resolveAccountsForUser = async (user) => {
   const memberships = await Membership.findAll({ where: { user: user.id, status: 'active' } });
   if (memberships.length === 0) {
     return { notFound: true };
-  }
-  if (memberships.length === 1) {
-    return { session: await issueSessionResponse(user, memberships[0]) };
   }
 
   const societyIds = [...new Set(memberships.map((m) => m.society))];
@@ -216,6 +256,8 @@ const resolveAccountsForUser = async (user) => {
       membershipId: m.id,
       societyId: m.society,
       societyName: societyById.get(m.society)?.name || 'Unknown Society',
+      zipCode: societyById.get(m.society)?.zipCode || null,
+      isSetupComplete: societyById.get(m.society)?.isSetupComplete ?? true,
       role: m.role,
       flatNo: m.flatNo || null,
       tower: m.tower || null,
@@ -277,9 +319,6 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (result.notFound) {
     return res.status(404).json({ message: 'This account is not linked to any society yet. Please register a society from the Plans & Offers page.' });
   }
-  if (result.session) {
-    return res.json(result.session);
-  }
   res.json({ step: 'select', options: result.options });
 });
 
@@ -327,7 +366,15 @@ const getMe = asyncHandler(async (req, res) => {
     flatId: req.flatId,
     avatar: req.user.avatar,
     photo: req.user.photo,
-    society: { _id: req.society.id, name: req.society.name, slug: req.society.slug, isGuestSandbox: req.society.isGuestSandbox, expiresAt: req.society.expiresAt },
+    society: {
+      _id: req.society.id,
+      name: req.society.name,
+      slug: req.society.slug,
+      zipCode: req.society.zipCode || null,
+      isSetupComplete: req.society.isSetupComplete,
+      isGuestSandbox: req.society.isGuestSandbox,
+      expiresAt: req.society.expiresAt,
+    },
   });
 });
 
@@ -406,4 +453,19 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: 'Password reset successful. You can now log in with your new password.' });
 });
 
-module.exports = { registerSociety, loginUser, switchAccount, requestOtp, verifyOtp, guestLogin, getMe, updateMyPhoto, getMySocieties, forgotPassword, resetPassword };
+module.exports = {
+  registerSociety,
+  checkSocietyAvailability,
+  registerSendOtp,
+  registerVerifyOtp,
+  loginUser,
+  switchAccount,
+  requestOtp,
+  verifyOtp,
+  guestLogin,
+  getMe,
+  updateMyPhoto,
+  getMySocieties,
+  forgotPassword,
+  resetPassword,
+};
