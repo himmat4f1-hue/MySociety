@@ -251,39 +251,47 @@ router.post(
         continue;
       }
 
-      let building = buildingByName.get(bName.toLowerCase());
-      if (!building) {
-        building = await Building.create({ society: req.societyId, name: bName });
-        buildingByName.set(bName.toLowerCase(), building);
-        buildingsCreated++;
-      }
+      try {
+        let building = buildingByName.get(bName.toLowerCase());
+        if (!building) {
+          building = await Building.create({ society: req.societyId, name: bName });
+          buildingByName.set(bName.toLowerCase(), building);
+          buildingsCreated++;
+        }
 
-      const floorKey = `${building.id}::${fName.toLowerCase()}`;
-      let floor = floorByKey.get(floorKey);
-      if (!floor) {
-        floor = await Floor.create({ society: req.societyId, buildingId: building.id, name: fName });
-        floorByKey.set(floorKey, floor);
-        floorsCreated++;
-      }
+        const floorKey = `${building.id}::${fName.toLowerCase()}`;
+        let floor = floorByKey.get(floorKey);
+        if (!floor) {
+          floor = await Floor.create({ society: req.societyId, buildingId: building.id, name: fName });
+          floorByKey.set(floorKey, floor);
+          floorsCreated++;
+        }
 
-      const unitKey = `${floor.id}::${flatNo.toLowerCase()}`;
-      if (unitKeys.has(unitKey)) {
+        const unitKey = `${floor.id}::${flatNo.toLowerCase()}`;
+        if (unitKeys.has(unitKey)) {
+          skipped++;
+          continue;
+        }
+        await Unit.create({
+          society: req.societyId,
+          buildingId: building.id,
+          floorId: floor.id,
+          flatNo,
+          tower: building.name,
+          floor: floor.name,
+          type: 'Unspecified',
+          areaSqft: 0,
+          status: 'Vacant',
+        });
+        unitKeys.add(unitKey);
+        flatsCreated++;
+      } catch (rowErr) {
+        // One bad/unexpectedly-duplicate row (e.g. a DB constraint neither
+        // of the checks above anticipated) shouldn't abort the whole
+        // import and throw away everything already imported before it -
+        // skip it and keep going.
         skipped++;
-        continue;
       }
-      await Unit.create({
-        society: req.societyId,
-        buildingId: building.id,
-        floorId: floor.id,
-        flatNo,
-        tower: building.name,
-        floor: floor.name,
-        type: 'Unspecified',
-        areaSqft: 0,
-        status: 'Vacant',
-      });
-      unitKeys.add(unitKey);
-      flatsCreated++;
     }
 
     // A bulk import IS the "Flat" structure choice, in case the Secretary

@@ -81,8 +81,15 @@ const Unit = sequelize.define('Unit', {
   },
 }, {
   timestamps: true,
+  // Unique per (society, buildingId, floorId, flatNo) - NOT just
+  // (society, flatNo). Real societies reuse flat numbers across buildings/
+  // floors all the time (e.g. "101" in both Building A and Building B), so
+  // a society-wide-only uniqueness constraint is too strict and rejects
+  // perfectly normal data (this is exactly what caused 500 errors on the
+  // Society Setup wizard's bulk CSV import and the manual Add Flat
+  // auto-naming, both of which are scoped per floor, not per society).
   indexes: [
-    { unique: true, fields: ['society', 'flatNo'] },
+    { unique: true, fields: ['society', 'buildingId', 'floorId', 'flatNo'] },
   ],
 });
 
