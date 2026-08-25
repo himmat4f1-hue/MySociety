@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Home, Plus, Pencil, Check, X, Loader2, ChevronRight } from 'lucide-react';
+import { Building2, Home, Plus, Pencil, Check, X, Loader2, ChevronRight, Upload, FileDown } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -68,6 +68,13 @@ const SocietySetup = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Bulk upload (alternative to clicking Add Building/Floor/Flat one at a
+  // time) - a society that already has its flat listing elsewhere can
+  // upload it as a CSV instead.
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSummary, setUploadSummary] = useState(null);
+
   const load = useCallback(async () => {
     const res = await api.get('/society-setup/structure');
     setTree(res.data);
@@ -111,6 +118,56 @@ const SocietySetup = () => {
       await load();
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Downloadable CSV template so the person knows exactly what format to
+  // upload in - three columns, one row per flat.
+  const downloadTemplate = () => {
+    const csv = ['Building,Floor,Flat No', 'A,1st Floor,101', 'A,1st Floor,102', 'A,2nd Floor,201', 'B,1st Floor,101'].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'society-setup-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Minimal CSV parsing (no library needed for this simple 3-column
+  // format) - first line is the header and is skipped, everything after is
+  // Building,Floor,Flat No. Safe to run more than once, or alongside manual
+  // Add Building/Floor/Flat clicks - the backend skips anything that
+  // already exists rather than duplicating it.
+  const handleUpload = async (file) => {
+    if (!file) return;
+    setUploadError('');
+    setUploadSummary(null);
+    setUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      const rows = lines
+        .slice(1)
+        .map((line) => {
+          const [building, floor, flatNo] = line.split(',').map((s) => (s || '').trim().replace(/^"|"$/g, ''));
+          return { building, floor, flatNo };
+        })
+        .filter((r) => r.building && r.floor && r.flatNo);
+
+      if (!rows.length) {
+        setUploadError('No valid rows found. Make sure the file has Building, Floor, Flat No columns.');
+        return;
+      }
+
+      const res = await api.post('/society-setup/bulk-import', { rows });
+      setUploadSummary(res.data);
+      setTypeChosen(true);
+      await load();
+    } catch (err) {
+      setUploadError(err.response?.data?.message || 'Could not import this file.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -204,7 +261,7 @@ const SocietySetup = () => {
           </div>
         ) : !showFinalTable ? (
           <div className="card">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
               <h3 className="font-semibold text-slate-800">{isIndividualHouses ? 'Add Your Houses' : 'Add Buildings, Floors & Flats'}</h3>
               {!isIndividualHouses && (
                 <button disabled={busy} onClick={addBuilding} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 disabled:opacity-60">
@@ -215,6 +272,31 @@ const SocietySetup = () => {
             <p className="text-xs text-slate-400 mb-4">
               {isIndividualHouses ? 'Click "Add House" to add each house one at a time - rename it right after.' : 'Add a building, then add floors under it, then add flats under each floor.'}
             </p>
+
+            {/* Already have your full flat listing somewhere else (Excel, a
+                management system export, etc.)? Upload it instead of
+                clicking through Add Building/Floor/Flat one at a time. Safe
+                to combine with manual entries too. */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-slate-700 mb-1">Already have your flat listing?</p>
+              <p className="text-xs text-slate-500 mb-2">Upload a CSV to fill in all your buildings, floors, and flats in one go, instead of adding them one at a time.</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button type="button" onClick={downloadTemplate} className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+                  <FileDown size={13} /> Download Template
+                </button>
+                <label className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 cursor-pointer">
+                  {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload CSV
+                  <input type="file" accept=".csv" className="hidden" disabled={uploading} onChange={(e) => handleUpload(e.target.files?.[0])} />
+                </label>
+              </div>
+              {uploadError && <p className="text-xs text-red-600 mt-2">{uploadError}</p>}
+              {uploadSummary && (
+                <p className="text-xs text-emerald-700 mt-2">
+                  Imported: {uploadSummary.buildingsCreated} building(s), {uploadSummary.floorsCreated} floor(s), {uploadSummary.flatsCreated} flat(s)
+                  {uploadSummary.skipped > 0 && ` - skipped ${uploadSummary.skipped} row(s) already present or invalid`}.
+                </p>
+              )}
+            </div>
 
             {isIndividualHouses ? (
               <div>

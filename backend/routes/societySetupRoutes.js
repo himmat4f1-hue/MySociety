@@ -210,4 +210,91 @@ router.post(
   })
 );
 
+// @route POST /api/society-setup/bulk-import { rows: [{building, floor,
+// flatNo}, ...] } - lets a society that already has its full flat listing
+// somewhere else skip the one-at-a-time Add Building/Floor/Flat clicking
+// entirely: upload a CSV (see the "Download Template" button on the
+// frontend) and this builds the whole tree in one shot. Matches
+// Building/Floor names case-insensitively against what already exists (so
+// re-uploading, or combining with manual entries, doesn't create
+// duplicates) and skips any flat number that already exists on its floor.
+router.post(
+  '/bulk-import',
+  protect,
+  authorize('secretary'),
+  asyncHandler(async (req, res) => {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || !rows.length) {
+      return res.status(400).json({ message: 'No rows to import.' });
+    }
+
+    const [existingBuildings, existingFloors, existingUnits] = await Promise.all([
+      Building.findAll({ where: { society: req.societyId } }),
+      Floor.findAll({ where: { society: req.societyId } }),
+      Unit.findAll({ where: { society: req.societyId } }),
+    ]);
+    const buildingByName = new Map(existingBuildings.map((b) => [b.name.toLowerCase(), b]));
+    const floorByKey = new Map(existingFloors.map((f) => [`${f.buildingId}::${f.name.toLowerCase()}`, f]));
+    const unitKeys = new Set(existingUnits.map((u) => `${u.floorId}::${(u.flatNo || '').toLowerCase()}`));
+
+    let buildingsCreated = 0;
+    let floorsCreated = 0;
+    let flatsCreated = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const bName = (row.building || '').trim();
+      const fName = (row.floor || '').trim();
+      const flatNo = (row.flatNo || '').trim();
+      if (!bName || !fName || !flatNo) {
+        skipped++;
+        continue;
+      }
+
+      let building = buildingByName.get(bName.toLowerCase());
+      if (!building) {
+        building = await Building.create({ society: req.societyId, name: bName });
+        buildingByName.set(bName.toLowerCase(), building);
+        buildingsCreated++;
+      }
+
+      const floorKey = `${building.id}::${fName.toLowerCase()}`;
+      let floor = floorByKey.get(floorKey);
+      if (!floor) {
+        floor = await Floor.create({ society: req.societyId, buildingId: building.id, name: fName });
+        floorByKey.set(floorKey, floor);
+        floorsCreated++;
+      }
+
+      const unitKey = `${floor.id}::${flatNo.toLowerCase()}`;
+      if (unitKeys.has(unitKey)) {
+        skipped++;
+        continue;
+      }
+      await Unit.create({
+        society: req.societyId,
+        buildingId: building.id,
+        floorId: floor.id,
+        flatNo,
+        tower: building.name,
+        floor: floor.name,
+        type: 'Unspecified',
+        areaSqft: 0,
+        status: 'Vacant',
+      });
+      unitKeys.add(unitKey);
+      flatsCreated++;
+    }
+
+    // A bulk import IS the "Flat" structure choice, in case the Secretary
+    // uploads before ever clicking through the type-choice screen.
+    const society = await Society.findByPk(req.societyId);
+    if (!society.type || society.type !== 'IndividualHouses') {
+      await society.update({ type: 'Apartment' });
+    }
+
+    res.json({ buildingsCreated, floorsCreated, flatsCreated, skipped });
+  })
+);
+
 module.exports = router;
