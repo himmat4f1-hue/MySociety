@@ -21,14 +21,16 @@ const TABS = [
   { id: 'register', label: 'Register' },
 ];
 
-// Groups a flat list of {membershipId, societyId, societyName, role, flatNo, ...}
-// options into [{ societyId, societyName, accounts: [...] }] so the picker can
-// show one heading per society with all of that society's roles/flats under it.
+// Groups a flat list of {membershipId, societyId, societyName, zipCode,
+// isSetupComplete, role, flatNo, ...} options into
+// [{ societyId, societyName, zipCode, accounts: [...] }] so the picker can
+// show one heading per society (name + zip) with all of that society's
+// roles/flats under it.
 const groupBySociety = (options) => {
   const bySociety = new Map();
   options.forEach((opt) => {
     if (!bySociety.has(opt.societyId)) {
-      bySociety.set(opt.societyId, { societyId: opt.societyId, societyName: opt.societyName, accounts: [] });
+      bySociety.set(opt.societyId, { societyId: opt.societyId, societyName: opt.societyName, zipCode: opt.zipCode, accounts: [] });
     }
     bySociety.get(opt.societyId).accounts.push(opt);
   });
@@ -94,7 +96,11 @@ const Login = () => {
     try {
       const result = await verifyOtp(phone, otp, membershipId);
       if (result.token) {
-        navigate('/app');
+        // A freshly-registered society (Secretary hasn't finished the
+        // Building/Floor/Flat wizard yet) has nothing to show on the normal
+        // dashboard - send them to Society Setup instead.
+        const picked = accountOptions?.find((a) => a.membershipId === membershipId);
+        navigate(picked && picked.isSetupComplete === false ? '/setup' : '/app');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Could not open that account. Please try again.');
@@ -230,6 +236,7 @@ const Login = () => {
                     <div key={group.societyId}>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                         <Building2 size={12} /> {group.societyName}
+                        {group.zipCode && <span className="normal-case font-normal">· Zip {group.zipCode}</span>}
                       </p>
                       <div className="space-y-1.5">
                         {group.accounts.map((acc) => (
@@ -240,7 +247,10 @@ const Login = () => {
                             className="w-full text-left border border-slate-200 rounded-lg px-4 py-2.5 hover:border-brand-400 hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
                           >
                             <span>
-                              <span className="font-medium text-slate-800 block">{ROLE_LABELS[acc.role] || acc.role}</span>
+                              <span className="font-medium text-slate-800 flex items-center gap-1.5">
+                                {ROLE_LABELS[acc.role] || acc.role}
+                                {acc.isSetupComplete === false && <span className="badge bg-amber-100 text-amber-700">Setup Pending</span>}
+                              </span>
                               {acc.flatId && <span className="text-xs text-slate-400">Flat {acc.flatNo || acc.flatId}{acc.tower ? ` · ${acc.tower}` : ''}</span>}
                             </span>
                             {pickLoading === acc.membershipId ? (
@@ -286,10 +296,10 @@ const Login = () => {
                 <Building2 size={32} className="mx-auto text-brand-500 mb-3" />
                 <h3 className="font-semibold text-slate-800 mb-2">Register a New Society</h3>
                 <p className="text-sm text-slate-500 mb-5">
-                  Creating a society involves choosing a plan and telling us how many buildings/flats (or houses) you have.
-                  Head over to Plans & Offers to get started - it only takes a minute. You'll become the Chairman of that society.
+                  Check your society's name and zip code are available, verify your mobile number, and pick a plan - it only takes a minute. You'll become the Secretary of
+                  that society, and can add your buildings/floors/flats right after your first login.
                 </p>
-                <Link to="/plans" className="btn-primary inline-block">Go to Plans & Offers</Link>
+                <Link to="/register" className="btn-primary inline-block">Register a Society</Link>
                 <p className="text-xs text-slate-400 mt-4">
                   Already have an account and want to join an existing society (e.g. as Secretary or a resident)? Ask your society's Chairman or Secretary to add you.
                 </p>

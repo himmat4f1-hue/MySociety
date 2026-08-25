@@ -91,6 +91,18 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   };
 
+  // Used by the Society Setup wizard's final step: /society-setup/complete
+  // reissues a fresh token (now with the Secretary's flatId baked in, since
+  // the one from registration had flatId: null). Swap it in and refetch
+  // /auth/me so the rest of the app sees the completed profile immediately.
+  const refreshSessionWithToken = async (newToken) => {
+    localStorage.setItem('mysociety_token', newToken);
+    const res = await api.get('/auth/me');
+    localStorage.setItem('mysociety_user', JSON.stringify(res.data));
+    setUser(res.data);
+    return res.data;
+  };
+
   const logout = () => {
     localStorage.removeItem('mysociety_token');
     localStorage.removeItem('mysociety_user');
@@ -98,7 +110,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, requestOtp, verifyOtp, switchAccount, registerSociety, guestLogin, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, requestOtp, verifyOtp, switchAccount, registerSociety, guestLogin, refreshSessionWithToken, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

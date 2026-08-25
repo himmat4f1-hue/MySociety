@@ -5,7 +5,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/public/Home';
 import ContactUs from './pages/public/ContactUs';
 import PlansOffers from './pages/public/PlansOffers';
+import SocietyRegister from './pages/public/SocietyRegister';
 import Login from './pages/Login';
+import SocietySetup from './pages/SocietySetup';
 import SeedDatabase from './pages/SeedDatabase';
 
 import Dashboard from './pages/Dashboard';
@@ -55,7 +57,12 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/contact" element={<ContactUs />} />
       <Route path="/plans" element={<PlansOffers />} />
+      <Route path="/register" element={<SocietyRegister />} />
       <Route path="/login" element={<Login />} />
+      {/* Society Setup wizard (Building/Floor/Flat builder) - shown right
+          after a freshly-registered Secretary's first login, before the
+          normal dashboard has anything to show. */}
+      <Route path="/setup" element={<ProtectedRoute roles={['secretary']}><SocietySetup /></ProtectedRoute>} />
       <Route path="/seed-database" element={<SeedDatabase />} />
 
       {/* Protected app (multi-tenant, under /app) */}
